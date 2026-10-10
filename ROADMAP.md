@@ -32,6 +32,22 @@ Done in source, not yet proven on a handset:
 
 Still open: deploy the Worker change before phone approval works against production; install the APK on a phone; MFA; server-side company scope; encrypted offline cache; payment proof. Do not treat this branch as P3 issuance.
 
+## M02 — private notebook (this branch, source only)
+
+Done in source. Not shown on a screen. Not proven on a handset.
+
+- Room database version 1: workspace, hub address, customer, branch, product, and the link between a customer and a hub record.
+- Write-ahead logging and foreign keys stay on. An orphan row is refused. A physical delete is refused.
+- Hide and restore run as one transaction. Restore the parent before the child. A second active copy of the same identity is refused.
+- The exported schema is committed. The build does not wipe the file when it cannot migrate.
+- The fictional demo companies are not imported. Hub tokens stay in `EncryptedSharedPreferences`, not in this database. Release signing stays off.
+
+Still open, on purpose:
+
+- No screen reads or writes this notebook. The customer list on the phone is still the in-memory demo. Do not describe it as live.
+- Customer names and phones are length-checked opaque bytes. Sealing those bytes with the Android Keystore is **NOT IMPLEMENTED**.
+- Audit, undo, money, tickets and the sync outbox are later milestones.
+
 ## P2 — authenticated cloud request/alert read (remaining)
 - Read existing Control Center API and relay, map data contracts and authorization gaps.
 - Implement opt-in backend adaptor with one synthetic data tenant first: login/MFA, revocable device tokens, server-side scoped company access, read-only request inbox, alerts and device/company overview.

@@ -1,0 +1,113 @@
+package com.pixelplus.owner.data.db
+
+import android.content.Context
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+
+/**
+ * Private notebook. The demo in memory is not copied here.
+ * Write-ahead logging is on. Foreign keys are on for every connection this class opens.
+ * A newer file with no migration is refused. The file is not deleted or rebuilt.
+ */
+@Database(
+    entities = [
+        WorkspaceEntity::class,
+        HubProfileEntity::class,
+        CustomerEntity::class,
+        BranchEntity::class,
+        ProductEntity::class,
+        CustomerLinkEntity::class,
+    ],
+    version = 1,
+    exportSchema = true,
+)
+abstract class OwnerDatabase : RoomDatabase() {
+    abstract fun ownerDao(): OwnerDao
+
+    internal fun records(): OwnerRecords = OwnerRecords(this)
+
+    companion object {
+        const val DATABASE_NAME = "pixel-plus-owner.db"
+        const val VERSION = 1
+
+        val TABLE_NAMES: List<String> = listOf(
+            "workspaces",
+            "hub_profiles",
+            "customers",
+            "branches",
+            "products",
+            "customer_links",
+        )
+
+        fun open(
+            context: Context,
+            name: String = DATABASE_NAME,
+            allowMainThreadQueries: Boolean = false,
+        ): OwnerDatabase {
+            val builder = Room.databaseBuilder(context, OwnerDatabase::class.java, name)
+                .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
+                .openHelperFactory(ForeignKeyOpenHelperFactory)
+                .addMigrations(*OwnerMigrations.ALL)
+                .addCallback(ConstraintCallback)
+            if (allowMainThreadQueries) builder.allowMainThreadQueries()
+            return builder.build()
+        }
+    }
+}
+
+/**
+ * Room 2.7 does not turn foreign keys on. This helper does, on each connection,
+ * before any transaction starts.
+ */
+private object ForeignKeyOpenHelperFactory : SupportSQLiteOpenHelper.Factory {
+    private val delegate = FrameworkSQLiteOpenHelperFactory()
+
+    override fun create(configuration: SupportSQLiteOpenHelper.Configuration): SupportSQLiteOpenHelper {
+        val wrapped = SupportSQLiteOpenHelper.Configuration.builder(configuration.context)
+            .name(configuration.name)
+            .callback(ForeignKeyCallback(configuration.callback))
+            .noBackupDirectory(configuration.useNoBackupDirectory)
+            .allowDataLossOnRecovery(configuration.allowDataLossOnRecovery)
+            .build()
+        return delegate.create(wrapped)
+    }
+}
+
+private class ForeignKeyCallback(
+    private val delegate: SupportSQLiteOpenHelper.Callback,
+) : SupportSQLiteOpenHelper.Callback(delegate.version) {
+    override fun onConfigure(db: SupportSQLiteDatabase) {
+        db.setForeignKeyConstraintsEnabled(true)
+        delegate.onConfigure(db)
+    }
+
+    override fun onCreate(db: SupportSQLiteDatabase) = delegate.onCreate(db)
+
+    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        delegate.onUpgrade(db, oldVersion, newVersion)
+    }
+
+    override fun onDowngrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        delegate.onDowngrade(db, oldVersion, newVersion)
+    }
+
+    override fun onOpen(db: SupportSQLiteDatabase) = delegate.onOpen(db)
+
+    override fun onCorruption(db: SupportSQLiteDatabase) = delegate.onCorruption(db)
+}
+
+private object ConstraintCallback : RoomDatabase.Callback() {
+    override fun onCreate(db: SupportSQLiteDatabase) {
+        // Room opens every connection with foreign keys already enabled.
+        // They cannot be toggled from this callback: it runs inside a transaction.
+        OwnerMigrations.applyConstraints(db)
+    }
+
+    override fun onOpen(db: SupportSQLiteDatabase) {
+        OwnerMigrations.applyConstraints(db)
+    }
+}

@@ -45,11 +45,13 @@ gradle :app:testDebugUnitTest :app:assembleDebug
 
 GitHub Actions (`.github/workflows/pixel-plus-owner-android.yml`) runs those tasks and uploads the debug APK artifact `pixel-plus-owner-debug-apk`. This is not a Play Store release.
 
-Build coordinates are locked: AGP 8.9.2, Gradle 8.11.1, JDK 17, Android SDK 35, build-tools 35.0.0, Kotlin 2.1.20, Jetpack Compose BOM 2025.04.01. Library versions are fixed in the Gradle files. No floating versions. The build checks that none of those libraries need an Android SDK newer than 35, and that the debug APK has no release signature and no secret. KSP is pinned but not applied yet.
+Build coordinates are locked: AGP 8.9.2, Gradle 8.11.1, JDK 17, Android SDK 35, build-tools 35.0.0, Kotlin 2.1.20, Jetpack Compose BOM 2025.04.01, Room 2.7.1. Library versions are fixed in the Gradle files. No floating versions. The build checks that none of those libraries need an Android SDK newer than 35, and that the debug APK has no release signature and no secret. KSP writes the Room schema into `app/schemas`. Navigation, biometrics, DataStore and AppCompat stay out of the APK.
 
 A Cairo clock lives in `domain/Clock.kt`. It follows Africa/Cairo, including the skipped hour when summer time starts and the repeated hour when it ends. It is not a new screen. The demo and the live hub behave as before.
 
-ساعة القاهرة تعرف التوقيت الصيفي، ولا تضيف شاشة. الوضع التجريبي والاتصال بالمركز كما هما. توقيع نسخة النشر ما زال متوقفًا.
+A private notebook (`OwnerDatabase`) can keep one workspace, hub addresses, customers, branches, products and links. It uses write-ahead logging and foreign keys. Hiding a row can be restored, and the file is not wiped when a migration is missing. The labelled demo is not copied in. Hub tokens are not stored in it. The screens still use the in-memory demo and the live hub; they do not read this notebook yet. Names and phones are accepted only as opaque bytes. Sealing those bytes with the Android Keystore is **NOT IMPLEMENTED**.
+
+ساعة القاهرة تعرف التوقيت الصيفي، ولا تضيف شاشة. دفتر خاص موجود في الكود، والشاشات لا تقرأه بعد. الوضع التجريبي يبقى في الذاكرة. رموز المركز لا تُحفظ في الدفتر. تشفير الأسماء والهواتف بمخزن المفاتيح غير منفّذ بعد. توقيع نسخة النشر ما زال متوقفًا.
 
 ## For agents
 

@@ -11,13 +11,14 @@ plugins {
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.kotlin.plugin.serialization")
+    id("com.google.devtools.ksp")
 }
 
-// M01 pins. No dynamic "+" versions and no snapshots.
+// Pins. No dynamic "+" versions and no snapshots.
 // Plugin versions live in the root build.gradle.kts.
 // Libraries below are resolved by auditPinnedDependencies.
-// Only the original runtime set is packaged. Room 2.7.1 stays off the APK:
-// WorkManager 2.10.5 already ships Room 2.6.1, and this milestone must not upgrade it.
+// M02 packages Room 2.7.1. WorkManager brings an older Room; resolution forces 2.7.1.
+// Navigation, biometric, datastore and appcompat stay off the APK.
 private val composeBom = "2025.04.01"
 private val activityCompose = "1.10.1"
 private val appcompat = "1.7.0"
@@ -105,6 +106,16 @@ android {
             )
         }
     }
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+        unitTests.isReturnDefaultValues = true
+    }
+}
+
+// Room writes the committed schema here. exportSchema is also set on OwnerDatabase.
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
 }
 
 val pinnedAndroidAudit: Configuration = configurations.create("pinnedAndroidAudit") {
@@ -141,8 +152,12 @@ dependencies {
     implementation("androidx.security:security-crypto:$securityCrypto")
     implementation("androidx.work:work-runtime-ktx:$work")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serialization")
+    implementation("androidx.room:room-runtime:$room")
+    implementation("androidx.room:room-ktx:$room")
+    ksp("androidx.room:room-compiler:$room")
     debugImplementation("androidx.compose.ui:ui-tooling")
     testImplementation("junit:junit:$junitVersion")
+    testImplementation("org.robolectric:robolectric:$robolectric")
 
     add(pinnedAndroidAudit.name, platform("androidx.compose:compose-bom:$composeBom"))
     add(pinnedAndroidAudit.name, "androidx.compose.ui:ui")
@@ -175,6 +190,15 @@ dependencies {
     add(pinnedJvmAudit.name, "junit:junit:$junitVersion")
     add(pinnedJvmAudit.name, "org.robolectric:robolectric:$robolectric")
     add(pinnedJvmAudit.name, "com.google.devtools.ksp:symbol-processing-api:$kspApi")
+}
+
+configurations.configureEach {
+    resolutionStrategy.eachDependency {
+        if (requested.group == "androidx.room") {
+            useVersion(room)
+            because("M02 keeps every Room artifact on 2.7.1")
+        }
+    }
 }
 
 afterEvaluate {
