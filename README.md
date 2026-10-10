@@ -45,7 +45,11 @@ gradle :app:testDebugUnitTest :app:assembleDebug
 
 GitHub Actions (`.github/workflows/pixel-plus-owner-android.yml`) runs those tasks and uploads the debug APK artifact `pixel-plus-owner-debug-apk`. This is not a Play Store release.
 
-Build coordinates: AGP 8.9.2, Gradle 8.11.1, JDK 17, Android SDK 35, Kotlin 2.1.20, Jetpack Compose.
+Build coordinates are locked: AGP 8.9.2, Gradle 8.11.1, JDK 17, Android SDK 35, build-tools 35.0.0, Kotlin 2.1.20, Jetpack Compose BOM 2025.04.01. Library versions are fixed in the Gradle files. No floating versions. The build checks that none of those libraries need an Android SDK newer than 35, and that the debug APK has no release signature and no secret. KSP is pinned but not applied yet.
+
+A Cairo clock lives in `domain/Clock.kt`. It follows Africa/Cairo, including the skipped hour when summer time starts and the repeated hour when it ends. It is not a new screen. The demo and the live hub behave as before.
+
+ساعة القاهرة تعرف التوقيت الصيفي، ولا تضيف شاشة. الوضع التجريبي والاتصال بالمركز كما هما. توقيع نسخة النشر ما زال متوقفًا.
 
 ## For agents
 
