@@ -6,7 +6,7 @@ This document is the **threat and compatibility contract**, not an assertion the
 - The existing `apps/licence-studio` signs 144-character Ed25519 codes on a trusted owner PC, with an encrypted private key, after owner unlock. The Store validates codes offline using trusted public keys.
 - `apps/control-center` has an API, requests, customer/install registry and alert model; its README explicitly marks hosted production deployment as NOT DONE.
 - Telegram owner buttons can record trial decisions, but a trusted PC is needed to sign existing codes. Do not put the current desktop private key in this new mobile app, an APK, repo, CI, hosted relay or push notification.
-- The new Android foundation **cannot** issue real codes, reach customers or notify the owner; it holds synthetic data in memory and has no INTERNET permission.
+- The Android app still **cannot** issue real codes and holds no signing key. With no hub saved it shows synthetic data in memory. With a hub saved it calls the Worker over HTTPS using the owner token (and, optionally, the pull token) from Keystore-backed preferences. It can record an approval or a refusal, read licence events, and, if a pull token is set, read a telemetry summary. It does not call `/ack`, does not use Firebase, and does not allow cleartext. Local notifications are posted by the app itself.
 
 ## Trust model
 - Generate a **new mobile signing identity** after secure hardware-based enrollment and owner reauthentication. Android Keystore is used for protecting/wrapping material where supported; do not assume Ed25519 hardware signing is universally offered. Provide honest secure fallback and test compromises.

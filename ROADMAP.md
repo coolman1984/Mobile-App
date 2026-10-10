@@ -19,7 +19,20 @@ Owner direction: run the software-company operational desk from one Android phon
 - Produce migration/public-key registration instructions and safe rollback strategy; do not activate any real production key.
 - Add instrumented Android security tests, emulator smoke test, backed-up release key and explicit internal distribution policy.
 
-## P2 — authenticated cloud request/alert read (separate PR)
+## P2a — phone hub, this branch (2026-10-10)
+
+Done in source, not yet proven on a handset:
+
+- Settings for the hub URL (https only), the owner token, and an optional telemetry pull token. Stored with `EncryptedSharedPreferences` and a Keystore `MasterKey`. Clear returns to the labelled demo.
+- Pending requests from `GET /licence/pending`. One-tap approve or reject after a confirm dialog.
+- Approve sends `POST /licence/decide` `{"id","action":"approve"}` only. The Worker records `licence_owner` and leaves the request pending. No code is accepted. Licence Studio on the PC still signs. Reject sends `action: refuse`.
+- Alerts are read-only: `GET /licence/events`, and `GET /pull` when the pull token is set. The app never calls `/ack`.
+- Local notifications via WorkManager every 15 minutes. No Firebase.
+- `INTERNET` and `POST_NOTIFICATIONS` only, in this app's manifest. Cleartext is off.
+
+Still open: deploy the Worker change before phone approval works against production; install the APK on a phone; MFA; server-side company scope; encrypted offline cache; payment proof. Do not treat this branch as P3 issuance.
+
+## P2 — authenticated cloud request/alert read (remaining)
 - Read existing Control Center API and relay, map data contracts and authorization gaps.
 - Implement opt-in backend adaptor with one synthetic data tenant first: login/MFA, revocable device tokens, server-side scoped company access, read-only request inbox, alerts and device/company overview.
 - Server, not UI, enforces tenant/user/role scope; no mass-export of customer data to phone.
