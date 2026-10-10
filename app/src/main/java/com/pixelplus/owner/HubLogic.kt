@@ -144,23 +144,38 @@ fun normalizeHubUrl(raw: String): UrlResult {
     val trimmed = raw.trim()
     if (trimmed.isEmpty()) return UrlResult.Reject("empty")
     if (trimmed.length > 200) return UrlResult.Reject("too_long")
+    // "https://" has an empty authority. java.net.URI (JVM and Android libcore)
+    // throws URISyntaxException ("Expected authority") before a host exists, so
+    // the host check below never runs. That is a missing host. android.net.Uri
+    // would accept it, but that class is stubbed in JVM unit tests and throws.
+    if (isBareHttps(trimmed)) return UrlResult.Reject("bad_host")
     val uri = try {
         URI(trimmed)
     } catch (e: Exception) {
         return UrlResult.Reject("bad_url")
     }
-    if (!uri.scheme.equals("https", ignoreCase = true)) return UrlResult.Reject("not_https")
-    if (!uri.userInfo.isNullOrEmpty()) return UrlResult.Reject("userinfo")
+    val scheme = uri.scheme ?: return UrlResult.Reject("bad_url")
+    if (!scheme.equals("https", ignoreCase = true)) return UrlResult.Reject("not_https")
+    if (!uri.userInfo.isNullOrEmpty() || uri.rawAuthority?.contains('@') == true) {
+        return UrlResult.Reject("userinfo")
+    }
     val host = uri.host?.lowercase()?.takeIf { it.isNotBlank() } ?: return UrlResult.Reject("bad_host")
-    if (!uri.rawQuery.isNullOrEmpty() || uri.rawFragment != null) return UrlResult.Reject("extra")
+    // A present-but-empty query ("?") or fragment ("#") is still not an origin.
+    if (uri.rawQuery != null || uri.rawFragment != null) return UrlResult.Reject("extra")
     val path = uri.path ?: ""
     if (path.isNotEmpty() && path != "/") return UrlResult.Reject("path")
-    val port = when (uri.port) {
+    val port = when (val value = uri.port) {
         -1, 443 -> ""
-        else -> ":${uri.port}"
+        in 1..65535 -> ":$value"
+        else -> return UrlResult.Reject("bad_url")
     }
     return UrlResult.Ok("https://$host$port")
 }
+
+/** True for "https://" with no host. Scheme case does not matter. */
+private fun isBareHttps(raw: String): Boolean =
+    raw.length == "https://".length &&
+        raw.regionMatches(0, "https://", 0, raw.length, ignoreCase = true)
 
 fun hostOnly(url: String): String = try {
     URI(url).host?.lowercase().orEmpty()
