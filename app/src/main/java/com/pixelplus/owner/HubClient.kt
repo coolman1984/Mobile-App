@@ -38,9 +38,11 @@ class HubClient(private val transport: HubTransport) {
 
     fun decide(config: HubConfig, id: String, action: OwnerAction): HubResult<DecideAck> {
         val body = decideBody(id, action) ?: return HubResult.Rejected("bad_id")
-        val base = baseOf(config)
-        if (base is HubBase.No) return HubResult.Rejected(base.reason)
-        val raw = transport.exchange(HubRequest("POST", base.url + "/licence/decide", config.ownerToken, body))
+        val base = when (val checked = baseOf(config)) {
+            is HubBase.Ready -> checked.url
+            is HubBase.No -> return HubResult.Rejected(checked.reason)
+        }
+        val raw = transport.exchange(HubRequest("POST", base + "/licence/decide", config.ownerToken, body))
         return interpret(raw, ::parseDecide)
     }
 
@@ -51,9 +53,11 @@ class HubClient(private val transport: HubTransport) {
         parse: (String) -> Parse<T>
     ): HubResult<T> {
         if (token.isBlank()) return HubResult.Rejected("no_token")
-        val base = baseOf(config)
-        if (base is HubBase.No) return HubResult.Rejected(base.reason)
-        val raw = transport.exchange(HubRequest("GET", base.url + path, token, null))
+        val base = when (val checked = baseOf(config)) {
+            is HubBase.Ready -> checked.url
+            is HubBase.No -> return HubResult.Rejected(checked.reason)
+        }
+        val raw = transport.exchange(HubRequest("GET", base + path, token, null))
         return interpret(raw, parse)
     }
 
@@ -62,11 +66,20 @@ class HubClient(private val transport: HubTransport) {
         is UrlResult.Reject -> HubBase.No(url.reason)
     }
 
-    private fun <T> interpret(raw: HubTransportResult, parse: (String) -> Parse<T>): HubResult<T> {
-        if (raw is HubTransportResult.Failed) return HubResult.Network(raw.kind)
-        if (raw.code == 401) return HubResult.Http(401, parseErrorCode(raw.body) ?: "unauthorised")
-        if (raw.code !in 200..299) return HubResult.Http(raw.code, parseErrorCode(raw.body) ?: "http")
-        return when (val parsed = parse(raw.body)) {
+    private fun <T> interpret(raw: HubTransportResult, parse: (String) -> Parse<T>): HubResult<T> =
+        when (raw) {
+            is HubTransportResult.Failed -> HubResult.Network(raw.kind)
+            is HubTransportResult.Response -> interpretResponse(raw.code, raw.body, parse)
+        }
+
+    private fun <T> interpretResponse(
+        code: Int,
+        body: String,
+        parse: (String) -> Parse<T>
+    ): HubResult<T> {
+        if (code == 401) return HubResult.Http(401, parseErrorCode(body) ?: "unauthorised")
+        if (code !in 200..299) return HubResult.Http(code, parseErrorCode(body) ?: "http")
+        return when (val parsed = parse(body)) {
             is Parse.Ok -> HubResult.Ok(parsed.value)
             is Parse.Bad -> HubResult.BadResponse(parsed.reason)
         }
