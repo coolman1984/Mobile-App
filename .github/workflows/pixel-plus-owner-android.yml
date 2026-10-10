@@ -1,0 +1,37 @@
+name: Pixel Plus Owner Android demo
+
+on:
+  pull_request:
+    paths:
+      - 'apps/pixel-plus-owner-mobile/**'
+      - '.github/workflows/pixel-plus-owner-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  demo-android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/pixel-plus-owner-mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Test pure demo business rules and compile Android app
+        run: gradle --no-daemon --stacktrace :app:testDebugUnitTest :app:assembleDebug
+      - name: Upload demo-only APK (no licence signer and no customer data)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pixel-plus-owner-demo-apk
+          path: apps/pixel-plus-owner-mobile/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 7
