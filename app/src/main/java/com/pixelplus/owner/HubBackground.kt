@@ -158,8 +158,8 @@ object HubNotifications {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
         if (!manager.areNotificationsEnabled()) return false
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            val channel = NotificationChannel(CHANNEL_ID, "تنبيهات المركز", NotificationManager.IMPORTANCE_DEFAULT)
-            channel.description = "طلبات الترخيص والأحداث الجديدة"
+            val channel = NotificationChannel(CHANNEL_ID, "تنبيهات المركز والمتابعات", NotificationManager.IMPORTANCE_DEFAULT)
+            channel.description = "طلبات الترخيص والأحداث الجديدة وموعد المتابعات"
             manager.createNotificationChannel(channel)
         }
         val open = Intent(context, MainActivity::class.java).apply {

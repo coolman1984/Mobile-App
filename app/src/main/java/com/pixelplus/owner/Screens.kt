@@ -40,6 +40,7 @@ import com.pixelplus.owner.audit.MirrorResult
 import com.pixelplus.owner.audit.OwnerReadClient
 import com.pixelplus.owner.audit.ActivitySnapshot
 import com.pixelplus.owner.backup.AndroidBackup
+import com.pixelplus.owner.backup.AndroidRestore
 import com.pixelplus.owner.data.BookResult
 import com.pixelplus.owner.data.CustomerBook
 import com.pixelplus.owner.data.CustomerList
@@ -205,8 +206,42 @@ internal fun ActivityScreen(config: HubConfig? = null) {
 }
 
 @Composable
-internal fun BackupScreen() {
+internal fun BackupScreen(reauthenticate: ((Boolean) -> Unit) -> Unit = { it(true) }) {
     val context = LocalContext.current
+    var plan by remember { mutableStateOf<com.pixelplus.owner.backup.RestorePlan?>(null) }
+    var restoreNote by remember { mutableStateOf<String?>(null) }
+    var restoring by remember { mutableStateOf(false) }
+    val opener = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        plan = null
+        restoreNote = "جارٍ فحص الملف."
+        val main = android.os.Handler(android.os.Looper.getMainLooper())
+        Thread {
+            val read = runCatching {
+                context.contentResolver.openInputStream(uri)!!.use { input ->
+                    val out = java.io.ByteArrayOutputStream()
+                    val buf = ByteArray(8192)
+                    var total = 0
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        total += n
+                        if (total > com.pixelplus.owner.backup.BackupLimits.MAX_PAYLOAD_BYTES + 1_048_576) return@use null
+                        out.write(buf, 0, n)
+                    }
+                    out.toByteArray()
+                }
+            }.getOrNull()
+            val prepared = if (read == null) null else runCatching { AndroidRestore.prepare(read) }.getOrNull()
+            main.post {
+                when (prepared) {
+                    is AndroidRestore.Prepared.Ready -> { plan = prepared.plan; restoreNote = null }
+                    is AndroidRestore.Prepared.Refused -> restoreNote = faultText(prepared.fault)
+                    null -> restoreNote = "تعذر قراءة الملف أو أنه أكبر من الحد المسموح."
+                }
+            }
+        }.start()
+    }
     var status by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri ->
@@ -232,7 +267,7 @@ internal fun BackupScreen() {
         Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("اقرأ قبل أن تنسخ", fontWeight = FontWeight.Bold)
             Text("النسخة مقفلة بمفتاح مرتبط بهذا الهاتف نفسه. إذا ضاع الهاتف أو مُسح التطبيق أو انتقلت إلى هاتف آخر فلن تُفتح.")
-            Text("الاستعادة من داخل التطبيق غير متاحة بعد.")
+            Text("الاستعادة تعمل على هذا الهاتف فقط، وتُبقي نسخة أمان من بياناتك الحالية.")
             Text("لا تحتوي النسخة رموز المركز ولا أي مفتاح توقيع.")
         }
     }
@@ -243,6 +278,42 @@ internal fun BackupScreen() {
     ) { Text(if (busy) "جارٍ النسخ" else "انسخ الآن / Back up now") }
     status?.let { Text(it) }
     if (Build.VERSION.SDK_INT < AndroidBackup.MIN_SDK) Text("النسخ الاحتياطي يحتاج أندرويد 11 أو أحدث.")
+    Text("الاستعادة", fontWeight = FontWeight.Bold)
+    OutlinedButton(enabled = !restoring, onClick = { opener.launch(arrayOf("*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("اختر ملف نسخة للاستعادة") }
+    restoreNote?.let { Text(it) }
+    plan?.let { p ->
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text("النسخة سليمة وتُفتح بمفتاح هذا الهاتف", fontWeight = FontWeight.Bold)
+                Text("أُخذت: " + SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Africa/Cairo") }.format(Date(p.manifest.createdAtUtcMs)) + " (القاهرة)")
+                p.notices.forEach { Text("• " + noticeText(it)) }
+                Text("ستُحفظ نسخة أمان من بياناتك الحالية داخل التطبيق قبل أي تغيير.")
+                Button(
+                    enabled = !restoring,
+                    onClick = {
+                        restoring = true
+                        reauthenticate { ok ->
+                            if (!ok) { restoring = false; restoreNote = "لم يتم التحقق من هويتك. لم يتغير شيء."; return@reauthenticate }
+                            val main = android.os.Handler(android.os.Looper.getMainLooper())
+                            Thread {
+                                val r = runCatching { AndroidRestore.apply(context.applicationContext, p) }
+                                    .getOrElse { AndroidRestore.Applied.Failed("حدث خطأ. لم تتغير بياناتك.", "Error. Your data did not change.") }
+                                main.post {
+                                    restoring = false
+                                    plan = null
+                                    restoreNote = when (r) {
+                                        is AndroidRestore.Applied.Done -> "تمت الاستعادة. القرارات المنتظرة (${r.quarantined}) صارت «تحتاج مراجعة». أعد فتح التطبيق لتحديث الشاشات."
+                                        is AndroidRestore.Applied.Failed -> r.reasonAr + "\n" + r.reasonEn
+                                    }
+                                }
+                            }.start()
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (restoring) "جارٍ الاستعادة" else "استعد الآن") }
+            }
+        }
+    }
 }
 
 @Composable
@@ -598,4 +669,22 @@ internal fun InstallsScreen(config: HubConfig) {
     ids.forEach { Text(it.take(8) + "…" + it.takeLast(4)) }
     next?.let { cursor -> OutlinedButton(enabled = !loading, onClick = { after = cursor }, modifier = Modifier.fillMaxWidth()) { Text("المزيد") } }
     Text("هذه قائمة التسجيل التي أرسلها مركز التحكم فقط، وليست سجل النشاط الكامل.", style = MaterialTheme.typography.bodySmall)
+}
+
+
+private fun faultText(f: com.pixelplus.owner.backup.BackupFault): String = when (f) {
+    com.pixelplus.owner.backup.BackupFault.NOT_AN_ARCHIVE -> "هذا الملف ليس نسخة من التطبيق."
+    com.pixelplus.owner.backup.BackupFault.UNSUPPORTED_FORMAT -> "صيغة هذه النسخة أحدث من هذا التطبيق."
+    com.pixelplus.owner.backup.BackupFault.NEWER_SCHEMA -> "هذه النسخة من إصدار أحدث من التطبيق. حدّث التطبيق أولًا."
+    com.pixelplus.owner.backup.BackupFault.WRONG_KEY_OR_TAMPERED -> "تعذر فتح النسخة: إما أنها من هاتف آخر أو أن الملف تغيّر."
+    com.pixelplus.owner.backup.BackupFault.TOO_LARGE -> "الملف أكبر من الحد المسموح."
+    else -> "الملف غير سليم، لم يتغير شيء."
+}
+
+private fun noticeText(n: com.pixelplus.owner.backup.RestoreNotice): String = when (n) {
+    com.pixelplus.owner.backup.RestoreNotice.TOKENS_MUST_BE_ENTERED_AGAIN -> "رموز المركز لا تُحفظ في النسخة؛ المحفوظ على الهاتف حاليًا يبقى كما هو. اختبر الاتصال بعد الاستعادة."
+    com.pixelplus.owner.backup.RestoreNotice.QUEUE_NEEDS_REVIEW -> "أي قرار كان ينتظر الإرسال يصير «يحتاج مراجعة» ولا يُرسل حتى تؤكده من جديد."
+    com.pixelplus.owner.backup.RestoreNotice.NEW_AUDIT_CHAIN_STARTS -> "سجل النشاط المستعاد يُحفظ كما هو، ويُضاف له سطر يقول إن استعادة حدثت."
+    com.pixelplus.owner.backup.RestoreNotice.SIGNING_STAYS_OFF -> "إصدار الأكواد يبقى مغلقًا."
+    com.pixelplus.owner.backup.RestoreNotice.OLDER_SCHEMA_WILL_MIGRATE -> "النسخة أقدم؛ ستُحدَّث بياناتها تلقائيًا."
 }

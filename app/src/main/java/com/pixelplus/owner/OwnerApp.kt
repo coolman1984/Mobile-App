@@ -58,7 +58,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 private data class PendingDecision(val id: String, val action: OwnerAction, val kind: String)
 
 @Composable
-fun OwnerApp(prefs: OwnerPrefs, onRequestNotifications: () -> Unit = {}) {
+fun OwnerApp(prefs: OwnerPrefs, reauthenticate: ((Boolean) -> Unit) -> Unit = { it(true) }, onRequestNotifications: () -> Unit = {}) {
     val context = LocalContext.current
     val activity = context as? android.app.Activity
     val store = remember { SecureHubStore(context.applicationContext) }
@@ -312,7 +312,7 @@ fun OwnerApp(prefs: OwnerPrefs, onRequestNotifications: () -> Unit = {}) {
                         )
                         "settings_appearance" -> AppearanceScreen(appearance) { appearance = it; prefs.saveAppearance(it) }
                         "settings_lock" -> LockSettingsScreen(lockPrefs, deviceIsSecure(context)) { lockPrefs = it; prefs.saveLock(it) }
-                        "settings_backup" -> BackupScreen()
+                        "settings_backup" -> BackupScreen(reauthenticate)
                         "activity" -> ActivityScreen(config)
                         "licences" -> LicenceHistoryScreen(config)
                         "installs" -> InstallsScreen(config)

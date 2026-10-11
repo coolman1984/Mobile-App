@@ -7,20 +7,20 @@ import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.view.WindowManager
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
+import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import com.pixelplus.owner.security.LockPolicy
-import com.pixelplus.owner.security.LockState
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
     private lateinit var prefs: OwnerPrefs
 
@@ -28,10 +28,10 @@ class MainActivity : ComponentActivity() {
     private var lock by mutableStateOf(LockPolicy.coldStart())
     private var credentialOpen = false
     private var wentToBackground = false
+    private var pendingReauth: ((Boolean) -> Unit)? = null
 
     private val credential = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        credentialOpen = false
-        lock = if (result.resultCode == RESULT_OK) LockPolicy.onUnlockSucceeded(lock) else LockPolicy.onUnlockFailed(lock)
+        finishAuth(result.resultCode == RESULT_OK)
     }
 
     private fun lockApplies(): Boolean = prefs.lock().enabled && isSecure()
@@ -44,13 +44,14 @@ class MainActivity : ComponentActivity() {
         if (!lockApplies()) lock = LockPolicy.onUnlockSucceeded(lock)
         setContent {
             Box {
-                OwnerApp(prefs = prefs, onRequestNotifications = { askForNotifications() })
+                OwnerApp(prefs = prefs, reauthenticate = { done -> reauthenticate(done) }, onRequestNotifications = { askForNotifications() })
                 if (lockApplies() && lock.contentHidden) {
                     MaterialTheme { LockScreen(secure = isSecure(), onUnlock = { requestUnlock() }) }
                 }
             }
         }
         askForNotifications()
+        FollowUpReminders.schedule(applicationContext)
     }
 
     override fun onPause() {
@@ -78,12 +79,61 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Unlocks the app. */
     private fun requestUnlock() {
+        authenticate()
+    }
+
+    /** Asks for the owner again before a risky step (a restore). Not securable on a phone with no screen lock: then it just goes on. */
+    private fun reauthenticate(done: (Boolean) -> Unit) {
+        if (!isSecure()) { done(true); return }
+        if (credentialOpen) { done(false); return }
+        pendingReauth = done
+        authenticate()
+    }
+
+    private fun finishAuth(ok: Boolean) {
+        credentialOpen = false
+        val reauth = pendingReauth
+        pendingReauth = null
+        if (reauth != null) {
+            reauth(ok)
+            return
+        }
+        lock = if (ok) LockPolicy.onUnlockSucceeded(lock) else LockPolicy.onUnlockFailed(lock)
+    }
+
+    /** The system prompt with fingerprint or face and the screen lock as a fallback; the plain screen-lock screen on phones that cannot combine them. */
+    private fun authenticate() {
         if (credentialOpen) return
-        val manager = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager ?: return
-        val intent = manager.createConfirmDeviceCredentialIntent("بيكسل بلس", "افتح القفل للمتابعة / Unlock to continue") ?: return
+        val flags = BiometricManager.Authenticators.BIOMETRIC_WEAK or BiometricManager.Authenticators.DEVICE_CREDENTIAL
+        if (BiometricManager.from(this).canAuthenticate(flags) == BiometricManager.BIOMETRIC_SUCCESS) {
+            credentialOpen = true
+            val prompt = BiometricPrompt(
+                this,
+                ContextCompat.getMainExecutor(this),
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) = finishAuth(true)
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = finishAuth(false)
+                },
+            )
+            val info = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("بيكسل بلس")
+                .setSubtitle("افتح القفل للمتابعة / Unlock to continue")
+                .setAllowedAuthenticators(flags)
+                .build()
+            val started = runCatching { prompt.authenticate(info) }.isSuccess
+            if (!started) finishAuth(false)
+            return
+        }
+        val manager = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
+        val intent = manager?.createConfirmDeviceCredentialIntent("بيكسل بلس", "افتح القفل للمتابعة / Unlock to continue")
+        if (intent == null) {
+            if (pendingReauth != null) finishAuth(false)
+            return
+        }
         credentialOpen = true
-        runCatching { credential.launch(intent) }.onFailure { credentialOpen = false }
+        runCatching { credential.launch(intent) }.onFailure { finishAuth(false) }
     }
 
     private fun askForNotifications() {

@@ -150,6 +150,7 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.activity:activity-compose:$activityCompose")
     implementation("androidx.security:security-crypto:$securityCrypto")
+    implementation("androidx.biometric:biometric:$biometric")
     implementation("androidx.work:work-runtime-ktx:$work")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$serialization")
     implementation("androidx.room:room-runtime:$room")
@@ -383,6 +384,9 @@ tasks.register("auditDebugApkSecrets") {
                 "android.permission.ACCESS_NETWORK_STATE",
                 "android.permission.RECEIVE_BOOT_COMPLETED",
                 "android.permission.FOREGROUND_SERVICE",
+                // the owner approved the biometric prompt on 2026-10-11 (androidx.biometric merges both)
+                "android.permission.USE_BIOMETRIC",
+                "android.permission.USE_FINGERPRINT",
                 "com.pixelplus.owner.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION",
             )
             if (permissions != allowed) {
@@ -397,6 +401,7 @@ tasks.register("auditDebugApkSecrets") {
         val owned = setOf(
             "android.permission.INTERNET",
             "android.permission.POST_NOTIFICATIONS",
+            "android.permission.USE_BIOMETRIC",
         )
         if (declared != owned) problems += "Source manifest permissions are $declared"
         if (problems.isNotEmpty()) {
