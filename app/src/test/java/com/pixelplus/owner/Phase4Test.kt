@@ -103,8 +103,11 @@ class Phase4Test {
         assertThrowsSql { raw.execSQL("UPDATE payment_entries SET amountMinor = 1") }
         assertThrowsSql { raw.execSQL("DELETE FROM payment_entries") }
         assertEquals(500L, db.ownerDao().payment(id(1))!!.amountMinor)
+        assertEquals(RecordResult.Applied, records().createNote(id(5), ws, cust, cipher(60), now + 1))
+        assertEquals(RecordResult.Applied, records().createFollowUp(id(6), ws, null, cipher(), now + 9, 0, now + 1))
         assertThrowsSql { raw.execSQL("DELETE FROM notes") }
         assertThrowsSql { raw.execSQL("DELETE FROM follow_ups") }
+        assertEquals(1, db.ownerDao().activeNotes(cust).size)
     }
 
     @Test fun neitherAmountNorTextEntersTheAuditChain() {
