@@ -18,7 +18,7 @@ plugins {
 // Plugin versions live in the root build.gradle.kts.
 // Libraries below are resolved by auditPinnedDependencies.
 // M02 packages Room 2.7.1. WorkManager brings an older Room; resolution forces 2.7.1.
-// Navigation, biometric, datastore and appcompat stay off the APK.
+// Navigation and datastore stay off the APK. Biometric (and the appcompat it brings) was approved by the owner on 2026-10-11.
 private val composeBom = "2025.04.01"
 private val activityCompose = "1.10.1"
 private val appcompat = "1.7.0"
@@ -324,9 +324,7 @@ tasks.register("auditDebugApkSecrets") {
             "firebaseio.com",
             "google-services.json",
             "Landroidx/navigation/",
-            "Landroidx/biometric/",
             "Landroidx/datastore/",
-            "Landroidx/appcompat/",
         ).map { it.toByteArray(Charsets.US_ASCII) }
         ZipFile(apk).use { zip ->
             val entries = zip.entries()
