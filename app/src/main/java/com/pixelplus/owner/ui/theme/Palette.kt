@@ -85,15 +85,17 @@ data class AppearancePrefs(
     val reducedMotion: Boolean = false,
 )
 
-data class ResolvedAppearance(val dark: Boolean, val scheme: Scheme, val useDynamic: Boolean, val fontScale: Float, val palette: Palette)
+data class ResolvedAppearance(val dark: Boolean, val scheme: Scheme, val useDynamic: Boolean, val fontScale: Float, val palette: Palette, val bundledFont: String? = null)
 
 object Appearance {
     const val DEFAULT_FONT = "system"
     const val MIN_SCALE = 0.85f
     const val MAX_SCALE = 1.5f
 
-    /** Fonts that may be picked. Bundling the real files, their licences and hashes is NOT IMPLEMENTED; only "system" works today. */
-    val FONTS = setOf(DEFAULT_FONT)
+    const val FONT_CAIRO = "cairo"
+
+    /** Fonts that may be picked: the phone's own, and Cairo (SIL OFL 1.1, bundled with its licence; see assets/licences/SOURCES.md). */
+    val FONTS = setOf(DEFAULT_FONT, FONT_CAIRO)
 
     fun sanitize(raw: AppearancePrefs): AppearancePrefs = raw.copy(
         paletteId = Palettes.byId(raw.paletteId).id,
@@ -121,6 +123,7 @@ object Appearance {
             useDynamic = prefs.dynamicColour && sdk >= 31,   // below Android 12 it falls back to the chosen palette
             fontScale = (system * prefs.appFontScale).coerceAtMost(2.0f),
             palette = palette,
+            bundledFont = prefs.arabicFont.takeIf { it != DEFAULT_FONT },
         )
     }
 }

@@ -7,7 +7,7 @@ on:
   pull_request:
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 concurrency:
   group: android-${{ github.ref }}
   cancel-in-progress: true
@@ -51,6 +51,18 @@ jobs:
                       if n >= 40: raise SystemExit
           print('failed tests listed:', n)
           PY
+      - name: Commit the exported Room schema when it changed
+        if: success() && github.event_name == 'push'
+        continue-on-error: true
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/schemas
+          if ! git diff --cached --quiet; then
+            git commit -m "Room: commit the exported schema [skip ci]"
+            git push
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:

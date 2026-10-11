@@ -56,3 +56,10 @@ Automated tests/builds are recorded in ROADMAP.md. No live-server deployment, sh
 - **Backup (M06):** AES-256-GCM with an authenticated manifest and a device-bound Keystore key. It cannot be restored after phone loss, an uninstall or on another phone; no screen may promise that. A restore returns every queued decision as "needs review" and never turns signing on. Nothing is wired to a screen yet.
 - **Lock (M09):** the policy uses the monotonic clock, hides content on leaving the app and treats an unknown timeout as the strictest. BiometricPrompt, the manifest permission and the lock screen are not implemented yet.
 - **Links (M11):** a customer card may offer a phone call or a plain web page; WhatsApp links and every other scheme are refused (the factory forbids automating WhatsApp).
+
+## Unlock, restore and reminders (2026-10-11)
+
+- **Unlock:** the system prompt (fingerprint or face, with the phone's screen lock as the fallback) via `androidx.biometric`, using the `USE_BIOMETRIC` permission the owner approved. Phones that cannot combine them get the plain screen-lock screen. There is no app-specific PIN. A phone with no screen lock cannot lock the app and is told so.
+- **Restore:** works on an archive that opens with this phone's key. The archive is verified, the candidate database must pass `integrity_check`, `foreign_key_check` and the version check, a safety copy of the current notebook is kept (never deleted by the app), and the swap is undone if the restored file cannot be opened. Queued decisions come back as "needs review" and dispatch is paused; hub tokens are not touched. The owner is asked to authenticate first. Not tested on a handset.
+- **Reminders:** a local WorkManager job posts a count-only notification when a follow-up's reminder time has come. No title, no name.
+- **Font:** Cairo, SIL OFL 1.1, bundled unmodified with its licence (`assets/licences`); a test pins its hash.

@@ -112,7 +112,12 @@ internal fun AppearanceScreen(current: AppearancePrefs, onChange: (AppearancePre
         valueRange = Appearance.MIN_SCALE..Appearance.MAX_SCALE,
         onValueChangeFinished = { onChange(current.copy(appFontScale = scale)) },
     )
-    Text("الخط الحالي هو خط الهاتف. خطوط إضافية غير متاحة بعد.", style = MaterialTheme.typography.bodySmall)
+    Text("الخط", fontWeight = FontWeight.Bold)
+    listOf(Appearance.DEFAULT_FONT to "خط الهاتف", Appearance.FONT_CAIRO to "Cairo (مضمّن، ترخيص OFL)").forEach { (font, label) ->
+        OutlinedButton(onClick = { onChange(current.copy(arabicFont = font, englishFont = font)) }, modifier = Modifier.fillMaxWidth()) {
+            Text((if (current.arabicFont == font) "✓ " else "") + label)
+        }
+    }
 }
 
 @Composable
