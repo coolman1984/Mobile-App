@@ -1,0 +1,2649 @@
+{
+ "note": "Produced by tools/gen_code_vectors.py with packages/af-license. Public key only.",
+ "publicKey": "9dWj_ZuQ8qyxSXjPdU6JsIjqCyX98PV2lmljZcH2XOg",
+ "otherPublicKey": "ZFjLNQT7KAQTUtevSyfaNBC_89KNSOQWEoR6QQGhC5Y",
+ "cases": [
+  {
+   "name": "trial_bound",
+   "code": "0716ZV-HZ041Y-R0ZC0F-WG1V7S-PZK40B-81081G-80CMJY-J5HJC1-K81JWJ-XHWHH5-8WPJHX-9GE71P-J10165-NWR55J-Z6RD38-FZK90B-ET5MV7-A4SJWA-KW7VHQ-6X3J97-YQ8E85-2YD123-GZ7Z73-3QZ50A",
+   "issued": {
+    "code": "0716ZV-HZ041Y-R0ZC0F-WG1V7S-PZK40B-81081G-80CMJY-J5HJC1-K81JWJ-XHWHH5-8WPJHX-9GE71P-J10165-NWR55J-Z6RD38-FZK90B-ET5MV7-A4SJWA-KW7VHQ-6X3J97-YQ8E85-2YD123-GZ7Z73-3QZ50A",
+    "serial": "01020304",
+    "edition": "trial",
+    "first_day": "2026-10-01",
+    "last_day": "2026-10-14",
+    "grace_days": 0,
+    "device": "7KD2M-QX9TP",
+    "seats": 1,
+    "product": "al-store"
+   },
+   "checks": [
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": true,
+      "state": "not_yet_valid",
+      "reason": "starts_later",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": 15
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": 14
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": 1
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": 0
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": -15
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": -16
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": -18
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": -19
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true,
+       "days_left": -1174
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "trial",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-14",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "01020304",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    }
+   ]
+  },
+  {
+   "name": "standard_grace",
+   "code": "0716ZV-HZ081Y-R0ZC0G-4G6000-000000-0A1C60-T0MMJX-N638EQ-FWHFPD-8HCKBC-Q84RKN-VFP7S6-0GMXYT-BX54FV-8J0V6X-9GJ38M-QCZB7P-WVM757-4NTDMT-DTHJZA-3973Q1-7JWEWE-YNY5M7-WFFY07",
+   "issued": {
+    "code": "0716ZV-HZ081Y-R0ZC0G-4G6000-000000-0A1C60-T0MMJX-N638EQ-FWHFPD-8HCKBC-Q84RKN-VFP7S6-0GMXYT-BX54FV-8J0V6X-9GJ38M-QCZB7P-WVM757-4NTDMT-DTHJZA-3973Q1-7JWEWE-YNY5M7-WFFY07",
+    "serial": "0A0B0C0D",
+    "edition": "standard",
+    "first_day": "2026-10-01",
+    "last_day": "2026-10-30",
+    "grace_days": 3,
+    "device": null,
+    "seats": 2,
+    "product": "al-store"
+   },
+   "checks": [
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": true,
+      "state": "not_yet_valid",
+      "reason": "starts_later",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 31
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": true,
+      "state": "not_yet_valid",
+      "reason": "starts_later",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 31
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": true,
+      "state": "not_yet_valid",
+      "reason": "starts_later",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 31
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 30
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 30
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 30
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 17
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 17
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 17
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 16
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 16
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 16
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 1
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 1
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 1
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": true,
+      "state": "grace",
+      "reason": "renew_soon",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 0
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": true,
+      "state": "grace",
+      "reason": "renew_soon",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 0
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": true,
+      "state": "grace",
+      "reason": "renew_soon",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": 0
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": true,
+      "state": "grace",
+      "reason": "renew_soon",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -2
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": true,
+      "state": "grace",
+      "reason": "renew_soon",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -2
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": true,
+      "state": "grace",
+      "reason": "renew_soon",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -2
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -3
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -3
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -3
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -1158
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -1158
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": true,
+      "state": "expired",
+      "reason": "renew_to_unlock_paid_actions",
+      "terms": {
+       "edition": "standard",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2026-10-30",
+       "grace_days": 3,
+       "seats": 2,
+       "serial": "0A0B0C0D",
+       "device_bound": false,
+       "days_left": -1158
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    }
+   ]
+  },
+  {
+   "name": "perpetual_bound",
+   "code": "0716ZV-HZ0G1Y-R0ZCZZ-ZG1V7S-PZK40B-FZXVEW-R0CMJZ-884J8G-0VPW5P-B72YH3-VQ9BNH-JW5JKQ-VYHDY0-40M395-CBW0YK-Z2YN5W-19815S-XHP3Z6-02G3B8-GZ0DJG-P2XJMA-G4ZWKV-QK3QR4-52S88E",
+   "issued": {
+    "code": "0716ZV-HZ0G1Y-R0ZCZZ-ZG1V7S-PZK40B-FZXVEW-R0CMJZ-884J8G-0VPW5P-B72YH3-VQ9BNH-JW5JKQ-VYHDY0-40M395-CBW0YK-Z2YN5W-19815S-XHP3Z6-02G3B8-GZ0DJG-P2XJMA-G4ZWKV-QK3QR4-52S88E",
+    "serial": "FFEEDDCC",
+    "edition": "perpetual",
+    "first_day": "2026-10-01",
+    "last_day": null,
+    "grace_days": 0,
+    "device": "7KD2M-QX9TP",
+    "seats": 1,
+    "product": "al-store"
+   },
+   "checks": [
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": true,
+      "state": "not_yet_valid",
+      "reason": "starts_later",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-09-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-14",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-15",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-30",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-10-31",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-11-02",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2026-11-03",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    },
+    {
+     "label": "ok",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": true,
+      "state": "active",
+      "reason": "",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": null,
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true,
+       "days_left": null
+      }
+     }
+    },
+    {
+     "label": "wrong_product",
+     "product": "other-app",
+     "device": "7KD2M-QX9TP",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "wrong_product",
+      "terms": {}
+     }
+    },
+    {
+     "label": "wrong_device",
+     "product": "al-store",
+     "device": "ABCDE-FGHJK",
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "no_device",
+     "product": "al-store",
+     "device": null,
+     "key": "pub",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "other_device",
+      "terms": {
+       "edition": "perpetual",
+       "issued": "2026-10-01",
+       "first_day": "2026-10-01",
+       "last_day": "2203-06-07",
+       "grace_days": 0,
+       "seats": 1,
+       "serial": "FFEEDDCC",
+       "device_bound": true
+      }
+     }
+    },
+    {
+     "label": "wrong_key",
+     "product": "al-store",
+     "device": "7KD2M-QX9TP",
+     "key": "other",
+     "today": "2030-01-01",
+     "expect": {
+      "valid": false,
+      "state": "invalid",
+      "reason": "unknown_key",
+      "terms": {}
+     }
+    }
+   ]
+  }
+ ],
+ "mutations": [
+  {
+   "label": "flipped_character",
+   "text": "0716ZV-HZ001Y-R0ZC0F-WG1V7S-PZK40B-81081G-80CMJY-J5HJC1-K81JWJ-XHWHH5-8WPJHX-9GE71P-J10165-NWR55J-Z6RD38-FZK90B-ET5MV7-A4SJWA-KW7VHQ-6X3J97-YQ8E85-2YD123-GZ7Z73-3QZ50A",
+   "expect": {
+    "valid": false,
+    "state": "invalid",
+    "reason": "bad_signature",
+    "terms": {}
+   }
+  },
+  {
+   "label": "sloppy_typing",
+   "text": "o7l6zv hzo4ly rozcof wglv7s pzk4ob 8lo8lg 8ocmjy j5hjcl k8ljwj xhwhh5 8wpjhx 9ge7lp jlol65 nwr55j z6rd38 fzk9ob et5mv7 a4sjwa kw7vhq 6x3j97 yq8e85 2ydl23 gz7z73 3qz5oa",
+   "expect": {
+    "valid": true,
+    "state": "active",
+    "reason": "",
+    "terms": {
+     "edition": "trial",
+     "issued": "2026-10-01",
+     "first_day": "2026-10-01",
+     "last_day": "2026-10-14",
+     "grace_days": 0,
+     "seats": 1,
+     "serial": "01020304",
+     "device_bound": true,
+     "days_left": 13
+    }
+   }
+  },
+  {
+   "label": "too_short",
+   "text": "0716ZV-HZ041Y-R0ZC0F-WG1V7S-PZK40B-81081G-80CMJY-J5HJC1-K81JWJ-XHWHH5-8WPJHX-9GE71P-J10165-NWR55J-Z6RD38-FZK90B-ET5MV7-A4SJWA-KW7VHQ-6X3J97-YQ8E85-2YD123-GZ7Z73",
+   "expect": {
+    "valid": false,
+    "state": "invalid",
+    "reason": "wrong_length",
+    "terms": {}
+   }
+  },
+  {
+   "label": "bad_character",
+   "text": "0716ZU-HZ041Y-R0ZC0F-WG1V7S-PZK40B-81081G-80CMJY-J5HJC1-K81JWJ-XHWHH5-8WPJHX-9GE71P-J10165-NWR55J-Z6RD38-FZK90B-ET5MV7-A4SJWA-KW7VHQ-6X3J97-YQ8E85-2YD123-GZ7Z73-3QZ50A",
+   "expect": {
+    "valid": false,
+    "state": "invalid",
+    "reason": "bad_character",
+    "terms": {}
+   }
+  },
+  {
+   "label": "empty",
+   "text": "",
+   "expect": {
+    "valid": false,
+    "state": "invalid",
+    "reason": "wrong_length",
+    "terms": {}
+   }
+  }
+ ]
+}

@@ -20,7 +20,7 @@ A process lock serializes queue confirmation, settings rotation/clearing and bac
 Automated tests/builds are recorded in ROADMAP.md. No live-server deployment, shared-token tenant isolation, trusted server clock, handset Keystore/kill/recovery proof, portable backup, real issuance or signing is claimed by M04.
 
 ## Trust model
-- Generate a **new mobile signing identity** after secure hardware-based enrollment and owner reauthentication. Android Keystore is used for protecting/wrapping material where supported; do not assume Ed25519 hardware signing is universally offered. Provide honest secure fallback and test compromises.
+- Generate a **new mobile signing identity** only in the phone's hardware-backed Keystore, with owner reauthentication per signature, never in software. The platform offers Ed25519 from Android 13 (API 33), and only a device whose Keystore reports a TEE or StrongBox for a test key is a candidate; below that, or with a software-only key, **signing is unavailable** and everything else in the app keeps working. There is no encrypted-software-key fallback, no device-PIN fallback and no signing from a background job. The `licensing/` code in this build can only *read* codes (verified against the factory's own reader) and its signing gate is hard-closed by `OwnerBuild.REAL_ISSUANCE_ENABLED = false`; a test fails if that is ever true in a general build.
 - Each existing client installation trusts only its configured public keys. Before using a mobile-signed code, distribute/register its trusted new public key to Store and other relevant apps in an approved software update. Do not replace or accidentally revoke the desktop public key; preserve old codes.
 - Signing locally offline is feasible for registered product/device claims. It is NOT automatically safe to approve new cloud requests offline: trial uniqueness and paid payment evidence need server-authoritative reconciliation.
 - Phone loss/revocation stops future *authorized* issuance after reconciliation, but issued perpetual offline codes cannot be invalidated instantly at disconnected customers. Document this limitation.
@@ -48,3 +48,11 @@ Automated tests/builds are recorded in ROADMAP.md. No live-server deployment, sh
 - Cloud deployment, push provider, hosting spend and collection of real personal/company data: need scope, region, cost and privacy approvals.
 - Real paid issuance: needs payment confirmation with reference, owner authentication and audit.
 - Launch: do not claim ready just because Gradle/JUnit succeed. Demonstrate a real device + real Store verification flow first.
+
+## Audit mirror, read routes, backup and lock (M05 to M12)
+
+- **Audit mirror (M05):** the hub's `/audit/append` and `/audit/recent` take the owner token only. The Worker re-hashes every entry, enforces the canonical form and refuses a fork, a gap, a wrong predecessor, another device and any private field. A shared admin token is not a cryptographic identity: the mirror shows tampering against a head the phone keeps; it cannot prove who wrote an entry. Not deployed; the phone does not call it yet.
+- **Read routes (M13):** `/installs` (ids only), `/licence/history` (no code, poll hash, shop text, payment reference or address) and `/owner/capabilities` are read-only with the owner token. The phone fails a whole reply that carries a field it must never hold.
+- **Backup (M06):** AES-256-GCM with an authenticated manifest and a device-bound Keystore key. It cannot be restored after phone loss, an uninstall or on another phone; no screen may promise that. A restore returns every queued decision as "needs review" and never turns signing on. Nothing is wired to a screen yet.
+- **Lock (M09):** the policy uses the monotonic clock, hides content on leaving the app and treats an unknown timeout as the strictest. BiometricPrompt, the manifest permission and the lock screen are not implemented yet.
+- **Links (M11):** a customer card may offer a phone call or a plain web page; WhatsApp links and every other scheme are refused (the factory forbids automating WhatsApp).
