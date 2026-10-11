@@ -37,6 +37,14 @@ import androidx.compose.ui.unit.dp
 import com.pixelplus.owner.audit.ActivityReader
 import com.pixelplus.owner.audit.ActivitySnapshot
 import com.pixelplus.owner.backup.AndroidBackup
+import com.pixelplus.owner.data.BookResult
+import com.pixelplus.owner.data.CustomerBook
+import com.pixelplus.owner.data.CustomerList
+import com.pixelplus.owner.data.FollowUpBook
+import com.pixelplus.owner.data.FollowUpItem
+import com.pixelplus.owner.data.MoneyBook
+import com.pixelplus.owner.data.MoneyOverview
+import com.pixelplus.owner.domain.Money
 import com.pixelplus.owner.domain.KpiSummary
 import com.pixelplus.owner.domain.RequestTab
 import com.pixelplus.owner.security.LockTimeout
@@ -236,5 +244,237 @@ internal fun RequestFilterButtons(selected: RequestTab?, onSelect: (RequestTab?)
         null to "الكل", RequestTab.WAITING to "تنتظر قرارك", RequestTab.APPROVED_WAITING_FOR_PC to "وافقت وتنتظر الكمبيوتر", RequestTab.APPROVAL_EXPIRED to "موافقة منتهية",
     ).forEach { (tab, label) ->
         OutlinedButton(onClick = { onSelect(tab) }, modifier = Modifier.fillMaxWidth()) { Text((if (selected == tab) "✓ " else "") + label) }
+    }
+}
+
+@Composable
+internal fun CustomersScreen() {
+    val context = LocalContext.current
+    var list by remember { mutableStateOf<CustomerList?>(null) }
+    var unavailable by remember { mutableStateOf(false) }
+    var reload by remember { mutableStateOf(0) }
+    var query by remember { mutableStateOf("") }
+    var name by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf<String?>(null) }
+    var trash by remember { mutableStateOf(false) }
+    var openNotes by remember { mutableStateOf<String?>(null) }
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    DisposableEffect(reload) {
+        val alive = AtomicBoolean(true)
+        Thread {
+            val loaded = runCatching { CustomerBook.load(context.applicationContext) }.getOrNull()
+            main.post { if (alive.get()) { list = loaded; unavailable = loaded == null } }
+        }.start()
+        onDispose { alive.set(false) }
+    }
+    fun run(op: () -> BookResult) {
+        Thread {
+            val r = runCatching(op).getOrElse { BookResult.Refused("حدث خطأ. لم تتغير بياناتك.", "Error. Your data did not change.") }
+            main.post {
+                note = if (r is BookResult.Refused) r.ar + "\n" + r.en else null
+                if (r == BookResult.Ok) { name = ""; phone = ""; reload += 1 }
+            }
+        }.start()
+    }
+    Text("دفتر العملاء خاص بهذا الهاتف. الأسماء والأرقام مشفّرة بمفتاح الهاتف ولا تُرسل للمركز ولا تدخل سجل النشاط.")
+    if (unavailable) { Text("تعذر فتح دفتر العملاء أو تجهيز مفتاح الحماية على هذا الهاتف."); return }
+    Text("عميل جديد", fontWeight = FontWeight.Bold)
+    androidx.compose.material3.OutlinedTextField(value = name, onValueChange = { name = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("الاسم") })
+    androidx.compose.material3.OutlinedTextField(value = phone, onValueChange = { phone = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("رقم الهاتف (اختياري)") })
+    Button(onClick = { val n = name; val p = phone; run { CustomerBook.add(context.applicationContext, n, p) } }, modifier = Modifier.fillMaxWidth()) { Text("إضافة") }
+    note?.let { Text(it) }
+    val current = list
+    if (current == null) { Text("جارٍ التحميل."); return }
+    androidx.compose.material3.OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("بحث بالاسم") })
+    val shown = com.pixelplus.owner.domain.ArabicSearch.filterSorted(current.active, query) { it.name }
+    if (shown.isEmpty()) Text(if (current.active.isEmpty()) "لا يوجد عملاء بعد." else "لا توجد نتيجة.")
+    shown.forEach { c ->
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(c.name, fontWeight = FontWeight.Bold)
+                c.phone?.let { Text(it) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val tel = c.phone?.let { com.pixelplus.owner.domain.IntentUri.safe("tel:$it") }
+                    if (tel != null) OutlinedButton(onClick = {
+                        runCatching { context.startActivity(android.content.Intent(android.content.Intent.ACTION_DIAL, android.net.Uri.parse(tel))) }
+                    }) { Text("اتصال") }
+                    OutlinedButton(onClick = { openNotes = if (openNotes == c.id) null else c.id }) { Text(if (openNotes == c.id) "▾ ملاحظات" else "▸ ملاحظات") }
+                    OutlinedButton(onClick = { run { CustomerBook.hide(context.applicationContext, c.id) } }) { Text("إخفاء") }
+                }
+                if (openNotes == c.id) NotesPanel(c.id)
+            }
+        }
+    }
+    if (current.hidden.isNotEmpty()) {
+        OutlinedButton(onClick = { trash = !trash }, modifier = Modifier.fillMaxWidth()) { Text((if (trash) "▾ " else "▸ ") + "المخفيون (${current.hidden.size})") }
+        if (trash) current.hidden.forEach { c ->
+            Card(modifier = Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(12.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text(c.name)
+                    OutlinedButton(onClick = { run { CustomerBook.restore(context.applicationContext, c.id) } }) { Text("استرجاع") }
+                }
+            }
+        }
+    }
+    Text("لا يُحذف شيء نهائيًا. الإخفاء يمكن التراجع عنه من المخفيين.", style = MaterialTheme.typography.bodySmall)
+}
+
+@Composable
+internal fun MoneyScreen() {
+    val context = LocalContext.current
+    var overview by remember { mutableStateOf<MoneyOverview?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    var reload by remember { mutableStateOf(0) }
+    var customerId by remember { mutableStateOf<String?>(null) }
+    var amount by remember { mutableStateOf("") }
+    var currency by remember { mutableStateOf("EGP") }
+    var reference by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf<String?>(null) }
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    DisposableEffect(reload) {
+        val alive = AtomicBoolean(true)
+        Thread {
+            val loaded = runCatching { MoneyBook.load(context.applicationContext, System.currentTimeMillis()) }.getOrNull()
+            main.post { if (alive.get()) { overview = loaded; failed = loaded == null } }
+        }.start()
+        onDispose { alive.set(false) }
+    }
+    fun run(op: () -> BookResult) {
+        Thread {
+            val r = runCatching(op).getOrElse { BookResult.Refused("حدث خطأ. لم تتغير بياناتك.", "Error. Your data did not change.") }
+            main.post {
+                note = if (r is BookResult.Refused) r.ar + "\n" + r.en else null
+                if (r == BookResult.Ok) { amount = ""; reference = ""; reload += 1 }
+            }
+        }.start()
+    }
+    Text("حسابات محلية على هذا الهاتف. لا تُرسل للمركز، ولا تُصدر ترخيصًا، ولا تُغيّر حالة أي طلب.")
+    if (failed) { Text("تعذر فتح الحسابات أو تجهيز مفتاح الحماية على هذا الهاتف."); return }
+    val o = overview
+    if (o == null) { Text("جارٍ التحميل."); return }
+    Text("إجمالي الشهر ${o.monthLabel} (بتوقيت القاهرة)", fontWeight = FontWeight.Bold)
+    if (o.monthTotals.isEmpty()) Text("لا توجد قيود هذا الشهر.")
+    o.monthTotals.forEach { (cur, minor) -> Text(cur + "  " + (Money.plain(minor, cur) ?: "—")) }
+    Text("دفعة جديدة", fontWeight = FontWeight.Bold)
+    if (o.customers.isEmpty()) Text("أضف عميلًا أولًا من تبويب العملاء.")
+    o.customers.forEach { c ->
+        OutlinedButton(onClick = { customerId = c.id }, modifier = Modifier.fillMaxWidth()) { Text((if (customerId == c.id) "✓ " else "") + c.name) }
+    }
+    androidx.compose.material3.OutlinedTextField(value = amount, onValueChange = { amount = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("المبلغ (مثل 1250.50)") })
+    androidx.compose.material3.OutlinedTextField(value = currency, onValueChange = { currency = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("العملة (3 حروف)") })
+    androidx.compose.material3.OutlinedTextField(value = reference, onValueChange = { reference = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("مرجع (اختياري، مشفّر)") })
+    Button(
+        enabled = customerId != null,
+        onClick = { val c = customerId; val a = amount; val cur = currency; val r = reference; if (c != null) run { MoneyBook.post(context.applicationContext, c, a, cur, r) } },
+        modifier = Modifier.fillMaxWidth(),
+    ) { Text("تسجيل الدفعة") }
+    note?.let { Text(it) }
+    Text("آخر القيود", fontWeight = FontWeight.Bold)
+    if (o.entries.isEmpty()) Text("لا توجد قيود بعد.")
+    o.entries.forEach { e ->
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(e.customerName + " · " + (Money.plain(e.amountMinor, e.currency) ?: "—") + " " + e.currency, fontWeight = FontWeight.Bold)
+                Text(SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Africa/Cairo") }.format(Date(e.receivedAtUtcMs)), style = MaterialTheme.typography.bodySmall)
+                if (e.isReversal) Text("قيد عكسي لقيد سابق")
+                if (e.reversed) Text("تم عكس هذا القيد")
+                if (!e.isReversal && !e.reversed) OutlinedButton(onClick = { run { MoneyBook.reverse(context.applicationContext, e.id) } }) { Text("عكس القيد") }
+            }
+        }
+    }
+    Text("القيد المسجّل لا يُعدَّل ولا يُحذف. التصحيح يكون بقيد عكسي.", style = MaterialTheme.typography.bodySmall)
+}
+
+@Composable
+internal fun FollowUpsScreen() {
+    val context = LocalContext.current
+    var items by remember { mutableStateOf<List<FollowUpItem>?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    var reload by remember { mutableStateOf(0) }
+    var title by remember { mutableStateOf("") }
+    var date by remember { mutableStateOf("") }
+    var time by remember { mutableStateOf("") }
+    var note by remember { mutableStateOf<String?>(null) }
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    DisposableEffect(reload) {
+        val alive = AtomicBoolean(true)
+        Thread {
+            val loaded = runCatching { FollowUpBook.load(context.applicationContext) }.getOrNull()
+            main.post { if (alive.get()) { items = loaded; failed = loaded == null } }
+        }.start()
+        onDispose { alive.set(false) }
+    }
+    fun run(op: () -> BookResult) {
+        Thread {
+            val r = runCatching(op).getOrElse { BookResult.Refused("حدث خطأ. لم تتغير بياناتك.", "Error. Your data did not change.") }
+            main.post {
+                note = if (r is BookResult.Refused) r.ar + "\n" + r.en else null
+                if (r == BookResult.Ok) { title = ""; reload += 1 }
+            }
+        }.start()
+    }
+    Text("متابعات خاصة بهذا الهاتف. التنبيه بموعدها داخل التطبيق فقط؛ لا يوجد تذكير يصلك وأنت خارجه بعد.")
+    if (failed) { Text("تعذر فتح المتابعات أو تجهيز مفتاح الحماية على هذا الهاتف."); return }
+    androidx.compose.material3.OutlinedTextField(value = title, onValueChange = { title = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("ما المطلوب؟") })
+    androidx.compose.material3.OutlinedTextField(value = date, onValueChange = { date = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("التاريخ (2026-10-15)") })
+    androidx.compose.material3.OutlinedTextField(value = time, onValueChange = { time = it }, modifier = Modifier.fillMaxWidth(), singleLine = true, label = { Text("الوقت (14:30) بتوقيت القاهرة") })
+    Button(onClick = { val t = title; val d = date; val h = time; run { FollowUpBook.add(context.applicationContext, t, null, d, h, 30) } }, modifier = Modifier.fillMaxWidth()) { Text("إضافة متابعة") }
+    note?.let { Text(it) }
+    val list = items
+    if (list == null) { Text("جارٍ التحميل."); return }
+    if (list.isEmpty()) Text("لا توجد متابعات.")
+    val now = System.currentTimeMillis()
+    list.forEach { f ->
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text((if (f.done) "✓ " else "") + f.title, fontWeight = FontWeight.Bold)
+                Text(SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Africa/Cairo") }.format(Date(f.dueAtUtcMs)))
+                if (!f.done && f.dueAtUtcMs <= now) Text("حان موعدها", fontWeight = FontWeight.Bold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (!f.done) Button(onClick = { run { FollowUpBook.complete(context.applicationContext, f.id) } }) { Text("تم") }
+                    OutlinedButton(onClick = { run { FollowUpBook.hide(context.applicationContext, f.id) } }) { Text("إخفاء") }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NotesPanel(customerId: String) {
+    val context = LocalContext.current
+    var notes by remember(customerId) { mutableStateOf<List<CustomerBook.NoteRow>?>(null) }
+    var reload by remember(customerId) { mutableStateOf(0) }
+    var text by remember(customerId) { mutableStateOf("") }
+    var message by remember(customerId) { mutableStateOf<String?>(null) }
+    val main = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
+    DisposableEffect(customerId, reload) {
+        val alive = AtomicBoolean(true)
+        Thread {
+            val loaded = runCatching { CustomerBook.notes(context.applicationContext, customerId) }.getOrNull()
+            main.post { if (alive.get()) notes = loaded }
+        }.start()
+        onDispose { alive.set(false) }
+    }
+    fun run(op: () -> BookResult) {
+        Thread {
+            val r = runCatching(op).getOrElse { BookResult.Refused("حدث خطأ. لم تتغير بياناتك.", "Error. Your data did not change.") }
+            main.post {
+                message = if (r is BookResult.Refused) r.ar + "\n" + r.en else null
+                if (r == BookResult.Ok) { text = ""; reload += 1 }
+            }
+        }.start()
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        notes?.forEach { n ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(n.text, modifier = Modifier.weight(1f))
+                OutlinedButton(onClick = { run { CustomerBook.hideNote(context.applicationContext, n.id) } }) { Text("إخفاء") }
+            }
+        }
+        if (notes != null && notes!!.isEmpty()) Text("لا توجد ملاحظات.")
+        androidx.compose.material3.OutlinedTextField(value = text, onValueChange = { text = it }, modifier = Modifier.fillMaxWidth(), label = { Text("ملاحظة جديدة (مشفّرة)") })
+        Button(onClick = { val t = text; run { CustomerBook.addNote(context.applicationContext, customerId, t) } }, modifier = Modifier.fillMaxWidth()) { Text("حفظ الملاحظة") }
+        message?.let { Text(it) }
     }
 }

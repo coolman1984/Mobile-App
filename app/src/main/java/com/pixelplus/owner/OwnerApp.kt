@@ -235,7 +235,7 @@ fun OwnerApp(prefs: OwnerPrefs, onRequestNotifications: () -> Unit = {}) {
                             HomeScreen(homeLines(config, demo, liveRequests, liveEvents)) { dispatch(NavEvent.Open(it)) }
                         }
                         "more" -> MoreScreen { dispatch(NavEvent.Open(it)) }
-                        "customers" -> CompaniesScreen(companiesView, demo) { demo = demo.chooseCompany(it) }
+                        "customers" -> CustomersScreen()
                         "requests" -> {
                           if (!requestsView.demo) RequestFilterButtons(tabFilter) { tabFilter = it }
                           RequestsScreen(
@@ -314,6 +314,8 @@ fun OwnerApp(prefs: OwnerPrefs, onRequestNotifications: () -> Unit = {}) {
                         "settings_lock" -> LockSettingsScreen(lockPrefs, deviceIsSecure(context)) { lockPrefs = it; prefs.saveLock(it) }
                         "settings_backup" -> BackupScreen()
                         "activity" -> ActivityScreen()
+                        "money" -> MoneyScreen()
+                        "followups" -> FollowUpsScreen()
                         else -> UnavailableScreen(here, "unavailable_not_built")
                     }
                 }

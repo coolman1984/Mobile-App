@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 internal object OwnerMigrations {
     val ALL: Array<Migration>
-        get() = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
+        get() = arrayOf(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
 
     /**
      * Indexes Room did not declare. They are recreated by [applyConstraints].
@@ -42,6 +42,29 @@ internal object OwnerMigrations {
             SYNC_TABLES.forEach { db.execSQL(it) }
         }
     }
+
+    private val MIGRATION_3_4 = object : Migration(3, 4) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            PARTIAL_INDEXES.forEach { name -> db.execSQL("DROP INDEX IF EXISTS `$name`") }
+            V4_TABLES.forEach { db.execSQL(it) }
+        }
+    }
+
+    /** Version 4 adds customer notes, follow-ups and cash entries. Additive only: nothing in an older file is touched. */
+    val V4_TABLES: List<String> = listOf(
+        """CREATE TABLE IF NOT EXISTS `notes` (`id` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `createdAtUtcMs` INTEGER NOT NULL, `updatedAtUtcMs` INTEGER NOT NULL, `revision` INTEGER NOT NULL DEFAULT 1, `deletedAtUtcMs` INTEGER, `customerId` TEXT NOT NULL, `encryptedBody` BLOB NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workspaceId`) REFERENCES `workspaces`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`customerId`) REFERENCES `customers`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE INDEX IF NOT EXISTS `index_notes_workspace` ON `notes` (`workspaceId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_notes_customer` ON `notes` (`customerId`, `updatedAtUtcMs`)""",
+        """CREATE TABLE IF NOT EXISTS `follow_ups` (`id` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `createdAtUtcMs` INTEGER NOT NULL, `updatedAtUtcMs` INTEGER NOT NULL, `revision` INTEGER NOT NULL DEFAULT 1, `deletedAtUtcMs` INTEGER, `customerId` TEXT, `encryptedTitle` BLOB NOT NULL, `dueAtUtcMs` INTEGER NOT NULL, `reminderOffsetMin` INTEGER NOT NULL DEFAULT 0, `completedAtUtcMs` INTEGER, PRIMARY KEY(`id`), FOREIGN KEY(`workspaceId`) REFERENCES `workspaces`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`customerId`) REFERENCES `customers`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE INDEX IF NOT EXISTS `index_follow_ups_workspace` ON `follow_ups` (`workspaceId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_follow_ups_customer` ON `follow_ups` (`customerId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_follow_ups_due` ON `follow_ups` (`deletedAtUtcMs`, `completedAtUtcMs`, `dueAtUtcMs`)""",
+        """CREATE TABLE IF NOT EXISTS `payment_entries` (`id` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `createdAtUtcMs` INTEGER NOT NULL, `customerId` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `receivedAtUtcMs` INTEGER NOT NULL, `encryptedReference` BLOB, `reversalOfId` TEXT, `correctionGroupId` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`workspaceId`) REFERENCES `workspaces`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`customerId`) REFERENCES `customers`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`reversalOfId`) REFERENCES `payment_entries`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE INDEX IF NOT EXISTS `index_payment_entries_workspace` ON `payment_entries` (`workspaceId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_payment_entries_customer` ON `payment_entries` (`customerId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_payment_entries_currency_time` ON `payment_entries` (`currency`, `receivedAtUtcMs`)""",
+        """CREATE UNIQUE INDEX IF NOT EXISTS `index_payment_entries_reversal` ON `payment_entries` (`reversalOfId`)""",
+    )
 
     /**
      * Room's expected create statements for version 3. Filled to match the
@@ -85,6 +108,9 @@ internal object OwnerMigrations {
             "branches",
             "products",
             "customer_links",
+            "notes",
+            "follow_ups",
+            "payment_entries",
         ).forEach { table ->
             add(
                 """
@@ -96,6 +122,26 @@ internal object OwnerMigrations {
                 """.trimIndent(),
             )
         }
+        add(
+            """
+            CREATE TRIGGER IF NOT EXISTS payment_entries_immutable
+            BEFORE UPDATE ON payment_entries
+            BEGIN
+            SELECT RAISE(ABORT, 'immutable_row');
+            END
+            """.trimIndent(),
+        )
+        add(
+            """
+            CREATE TRIGGER IF NOT EXISTS payment_entries_shape
+            BEFORE INSERT ON payment_entries
+            WHEN NEW.amountMinor = 0 OR length(NEW.currency) != 3 OR NEW.currency GLOB '*[^A-Z]*'
+            OR NEW.receivedAtUtcMs < 0
+            BEGIN
+            SELECT RAISE(ABORT, 'bad_payment');
+            END
+            """.trimIndent(),
+        )
         add(insertClock("workspaces"))
         add(updateClock("workspaces", hasWorkspace = false, hasDeleted = false))
         add(

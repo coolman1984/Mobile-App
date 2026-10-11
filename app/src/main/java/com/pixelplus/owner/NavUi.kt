@@ -38,7 +38,7 @@ internal const val REAL_ISSUANCE_ENABLED = com.pixelplus.owner.licensing.OwnerBu
 /** Destinations that have a real screen in this build. Every other destination shows an honest "not available yet". */
 internal val BUILT_DESTINATIONS = setOf(
     "home", "requests", "customers", "alerts", "more", "settings", "codes",
-    "settings_appearance", "settings_lock", "settings_backup", "activity",
+    "settings_appearance", "settings_lock", "settings_backup", "activity", "money", "followups",
 )
 
 @Composable

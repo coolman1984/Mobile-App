@@ -47,6 +47,7 @@ object Destinations {
     Dest("licences", "licences", RootTab.MORE, MoreCategory.BUSINESS, Capability.LIVE_HUB),
     Dest("licence", "licence/{id}", RootTab.MORE, null, Capability.LIVE_HUB),
     Dest("expiry_calendar", "expiry-calendar", RootTab.MORE, MoreCategory.BUSINESS, Capability.LIVE_HUB),
+    Dest("followups", "followups", RootTab.MORE, MoreCategory.BUSINESS, null),
     Dest("money", "money", RootTab.MORE, MoreCategory.BUSINESS, null),
     Dest("payment_new", "payment/new", RootTab.MORE, null, null),
     Dest("payment_correction", "payment/{id}/correction", RootTab.MORE, null, null),

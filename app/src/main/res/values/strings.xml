@@ -19,6 +19,7 @@
     <string name="dest_licences">التراخيص</string>
     <string name="dest_licence">تفاصيل الترخيص</string>
     <string name="dest_expiry_calendar">تقويم الانتهاء</string>
+    <string name="dest_followups">المتابعات</string>
     <string name="dest_money">الحسابات</string>
     <string name="dest_payment_new">دفعة جديدة</string>
     <string name="dest_payment_correction">تصحيح دفعة</string>

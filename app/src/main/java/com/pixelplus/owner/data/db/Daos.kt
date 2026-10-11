@@ -8,8 +8,11 @@ import androidx.room.Query
 import java.util.concurrent.Callable
 import com.pixelplus.owner.UrlResult
 import com.pixelplus.owner.audit.AuditCanonical
+import com.pixelplus.owner.audit.AuditRedaction
 import com.pixelplus.owner.audit.AuditVocab
 import com.pixelplus.owner.audit.JsonValue
+import com.pixelplus.owner.domain.CashPosting
+import com.pixelplus.owner.domain.ReversalResult
 import com.pixelplus.owner.domain.Undo
 import com.pixelplus.owner.domain.UndoChannel
 import com.pixelplus.owner.domain.UndoDecision
@@ -117,6 +120,60 @@ interface OwnerDao {
         """,
     )
     fun activeCustomers(workspaceId: String): List<CustomerEntity>
+
+    @Query(
+        """
+        SELECT * FROM customers
+        WHERE workspaceId = :workspaceId AND deletedAtUtcMs IS NOT NULL
+        ORDER BY deletedAtUtcMs DESC
+        """,
+    )
+    fun hiddenCustomers(workspaceId: String): List<CustomerEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertNote(row: NoteEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertFollowUp(row: FollowUpEntity)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    fun insertPayment(row: PaymentEntity)
+
+    @Query("SELECT * FROM notes WHERE id = :id")
+    fun note(id: String): NoteEntity?
+
+    @Query("SELECT * FROM notes WHERE customerId = :customerId AND deletedAtUtcMs IS NULL ORDER BY updatedAtUtcMs DESC, id")
+    fun activeNotes(customerId: String): List<NoteEntity>
+
+    @Query("UPDATE notes SET deletedAtUtcMs = :nowUtcMs, updatedAtUtcMs = :nowUtcMs, revision = revision + 1 WHERE id = :id AND deletedAtUtcMs IS NULL")
+    fun hideNote(id: String, nowUtcMs: Long): Int
+
+    @Query("UPDATE notes SET deletedAtUtcMs = NULL, updatedAtUtcMs = :nowUtcMs, revision = revision + 1 WHERE id = :id AND deletedAtUtcMs IS NOT NULL")
+    fun restoreNote(id: String, nowUtcMs: Long): Int
+
+    @Query("SELECT * FROM follow_ups WHERE id = :id")
+    fun followUp(id: String): FollowUpEntity?
+
+    @Query("SELECT * FROM follow_ups WHERE workspaceId = :workspaceId AND deletedAtUtcMs IS NULL ORDER BY completedAtUtcMs IS NOT NULL, dueAtUtcMs, id")
+    fun activeFollowUps(workspaceId: String): List<FollowUpEntity>
+
+    @Query("UPDATE follow_ups SET completedAtUtcMs = :nowUtcMs, updatedAtUtcMs = :nowUtcMs, revision = revision + 1 WHERE id = :id AND completedAtUtcMs IS NULL AND deletedAtUtcMs IS NULL")
+    fun completeFollowUp(id: String, nowUtcMs: Long): Int
+
+    @Query("UPDATE follow_ups SET deletedAtUtcMs = :nowUtcMs, updatedAtUtcMs = :nowUtcMs, revision = revision + 1 WHERE id = :id AND deletedAtUtcMs IS NULL")
+    fun hideFollowUp(id: String, nowUtcMs: Long): Int
+
+    @Query("SELECT * FROM payment_entries WHERE id = :id")
+    fun payment(id: String): PaymentEntity?
+
+    @Query("SELECT * FROM payment_entries WHERE customerId = :customerId ORDER BY receivedAtUtcMs, id")
+    fun paymentsOfCustomer(customerId: String): List<PaymentEntity>
+
+    @Query("SELECT * FROM payment_entries WHERE workspaceId = :workspaceId ORDER BY receivedAtUtcMs DESC, id LIMIT :limit")
+    fun recentPayments(workspaceId: String, limit: Int): List<PaymentEntity>
+
+    @Query("SELECT * FROM payment_entries WHERE workspaceId = :workspaceId AND receivedAtUtcMs >= :fromUtcMs AND receivedAtUtcMs < :toUtcMs")
+    fun paymentsBetween(workspaceId: String, fromUtcMs: Long, toUtcMs: Long): List<PaymentEntity>
 
     @Query(
         """
@@ -1068,6 +1125,120 @@ internal class OwnerRecords(private val database: OwnerDatabase) {
                 undo = localUndo(revision + 1, OP_RESTORE),
             )
             RecordResult.Applied
+        }
+    }
+
+
+    fun createNote(id: String, workspaceId: String, customerId: String, encryptedBody: ByteArray, nowUtcMs: Long): RecordResult {
+        if (!RecordRules.validId(id) || !RecordRules.validId(workspaceId) || !RecordRules.validId(customerId) || nowUtcMs < 0 ||
+            !RecordRules.ciphertext(encryptedBody, RecordRules.NOTE_CIPHER_MAX)
+        ) return RecordResult.Rejected
+        return write {
+            val customer = dao.customer(customerId) ?: return@write RecordResult.Missing
+            if (customer.workspaceId != workspaceId) return@write RecordResult.WorkspaceMismatch
+            if (customer.deletedAtUtcMs != null) return@write RecordResult.InactiveParent
+            dao.insertNote(NoteEntity(id, workspaceId, nowUtcMs, nowUtcMs, 1, null, customerId, encryptedBody))
+            note(AuditVocab.SCREEN_CUSTOMERS, AuditVocab.ACTION_CREATE, AuditVocab.ENTITY_NOTE, id, workspaceId, nowUtcMs,
+                after = mapOf("revision" to rev(1), "deleted" to bit(false)))
+            RecordResult.Applied
+        }
+    }
+
+    fun softDeleteNote(id: String, nowUtcMs: Long): RecordResult = hide(
+        id, nowUtcMs, AuditVocab.ENTITY_NOTE, AuditVocab.SCREEN_CUSTOMERS, dao::note, { it.deletedAtUtcMs }, dao::hideNote, { it.workspaceId }, { it.revision },
+    )
+
+    fun createFollowUp(
+        id: String,
+        workspaceId: String,
+        customerId: String?,
+        encryptedTitle: ByteArray,
+        dueAtUtcMs: Long,
+        reminderOffsetMin: Int,
+        nowUtcMs: Long,
+    ): RecordResult {
+        if (!RecordRules.validId(id) || !RecordRules.validId(workspaceId) || (customerId != null && !RecordRules.validId(customerId)) ||
+            nowUtcMs < 0 || dueAtUtcMs < 0 || reminderOffsetMin !in 0..(7 * 24 * 60) || !RecordRules.ciphertext(encryptedTitle, RecordRules.NAME_CIPHER_MAX)
+        ) return RecordResult.Rejected
+        return write {
+            if (dao.workspace(workspaceId) == null) return@write RecordResult.Missing
+            if (customerId != null) {
+                val customer = dao.customer(customerId) ?: return@write RecordResult.Missing
+                if (customer.workspaceId != workspaceId) return@write RecordResult.WorkspaceMismatch
+                if (customer.deletedAtUtcMs != null) return@write RecordResult.InactiveParent
+            }
+            dao.insertFollowUp(FollowUpEntity(id, workspaceId, nowUtcMs, nowUtcMs, 1, null, customerId, encryptedTitle, dueAtUtcMs, reminderOffsetMin, null))
+            note(AuditVocab.SCREEN_CUSTOMERS, AuditVocab.ACTION_CREATE, AuditVocab.ENTITY_FOLLOW_UP, id, workspaceId, nowUtcMs,
+                after = mapOf("revision" to rev(1), "status" to word("open")))
+            RecordResult.Applied
+        }
+    }
+
+    fun completeFollowUp(id: String, nowUtcMs: Long): RecordResult {
+        if (!RecordRules.validId(id) || nowUtcMs < 0) return RecordResult.Rejected
+        return write {
+            val row = dao.followUp(id) ?: return@write RecordResult.Missing
+            if (row.deletedAtUtcMs != null) return@write RecordResult.NotDeleted
+            if (row.completedAtUtcMs != null) return@write RecordResult.AlreadyActive
+            if (nowUtcMs < row.createdAtUtcMs) return@write RecordResult.Rejected
+            if (dao.completeFollowUp(id, nowUtcMs) != 1) error("follow-up did not write one row")
+            note(AuditVocab.SCREEN_CUSTOMERS, AuditVocab.ACTION_UPDATE, AuditVocab.ENTITY_FOLLOW_UP, id, row.workspaceId, nowUtcMs,
+                before = mapOf("status" to word("open"), "revision" to rev(row.revision)),
+                after = mapOf("status" to word("done"), "revision" to rev(row.revision + 1)))
+            RecordResult.Applied
+        }
+    }
+
+    fun softDeleteFollowUp(id: String, nowUtcMs: Long): RecordResult = hide(
+        id, nowUtcMs, AuditVocab.ENTITY_FOLLOW_UP, AuditVocab.SCREEN_CUSTOMERS, dao::followUp, { it.deletedAtUtcMs }, dao::hideFollowUp, { it.workspaceId }, { it.revision },
+    )
+
+    /** Amounts are signed minor units and never enter the audit chain; only the currency does. */
+    fun postPayment(
+        id: String,
+        workspaceId: String,
+        customerId: String,
+        amountMinor: Long,
+        currency: String,
+        receivedAtUtcMs: Long,
+        encryptedReference: ByteArray?,
+        nowUtcMs: Long,
+    ): RecordResult {
+        if (!RecordRules.validId(id) || !RecordRules.validId(workspaceId) || !RecordRules.validId(customerId) || nowUtcMs < 0 ||
+            receivedAtUtcMs < 0 || amountMinor == 0L || amountMinor == Long.MIN_VALUE || RecordRules.currency(currency) == null ||
+            (encryptedReference != null && !RecordRules.ciphertext(encryptedReference, RecordRules.PHONE_CIPHER_MAX))
+        ) return RecordResult.Rejected
+        return write {
+            val customer = dao.customer(customerId) ?: return@write RecordResult.Missing
+            if (customer.workspaceId != workspaceId) return@write RecordResult.WorkspaceMismatch
+            if (customer.deletedAtUtcMs != null) return@write RecordResult.InactiveParent
+            dao.insertPayment(PaymentEntity(id, workspaceId, nowUtcMs, customerId, amountMinor, currency, receivedAtUtcMs, encryptedReference, null, null))
+            note(AuditVocab.SCREEN_MONEY, AuditVocab.ACTION_CREATE, AuditVocab.ENTITY_PAYMENT, id, workspaceId, nowUtcMs,
+                after = mapOf("currency" to word(currency), "revision" to rev(1)))
+            RecordResult.Applied
+        }
+    }
+
+    /** Posts the opposite entry. The original stays exactly as it was. An original can be reversed once, and a reversal cannot be reversed. */
+    fun reversePayment(originalId: String, reversalId: String, groupId: String, nowUtcMs: Long): RecordResult {
+        if (!RecordRules.validId(originalId) || !RecordRules.validId(reversalId) || !RecordRules.validId(groupId) || nowUtcMs < 0) return RecordResult.Rejected
+        return write {
+            val original = dao.payment(originalId) ?: return@write RecordResult.Missing
+            if (original.reversalOfId != null) return@write RecordResult.Rejected
+            val existing = dao.paymentsOfCustomer(original.customerId).map {
+                CashPosting(it.id, it.customerId, it.amountMinor, it.currency, it.reversalOfId, it.correctionGroupId)
+            }
+            val posted = Undo.postReversal(CashPosting(original.id, original.customerId, original.amountMinor, original.currency), reversalId, groupId, existing)
+            when (posted) {
+                is ReversalResult.Rejected -> if (posted.reason == "already_reversed") RecordResult.Conflict else RecordResult.Rejected
+                is ReversalResult.Posted -> {
+                    val r = posted.reversal
+                    dao.insertPayment(PaymentEntity(r.id, original.workspaceId, nowUtcMs, r.customerId, r.amountMinor, r.currency, nowUtcMs, null, original.id, groupId))
+                    note(AuditVocab.SCREEN_MONEY, AuditVocab.ACTION_REVERSAL, AuditVocab.ENTITY_PAYMENT, r.id, original.workspaceId, nowUtcMs,
+                        after = AuditRedaction.postedReversal(r.currency) + mapOf("revision" to rev(1)))
+                    RecordResult.Applied
+                }
+            }
         }
     }
 
