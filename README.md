@@ -64,3 +64,11 @@ Source of truth for later phases: [ROADMAP.md](ROADMAP.md). Security: [SECURITY_
 M04 adds a durable encrypted decision queue and safe hub metadata cache. Confirmations show Arabic/English queued feedback, count/age and review count; they never claim remote success until reconciled. A saved offline request snapshot is labelled with its last connection time. Changing hub address invalidates old intents; token rotation pauses them until the connection and request state are checked. Notifications deduplicate stable keys per hub across restarts. Room migrates to version 3 without wiping data. Details, verification and remaining limits are in [ROADMAP.md](ROADMAP.md#m04--durable-decision-queue-and-hub-cache-2026-10-11-source-verified).
 
 تأكيد الموافقة أو الرفض يحفظ قرارًا مشفّرًا في قائمة الانتظار على الهاتف. يراجع التطبيق حالة الطلب على المركز قبل الإرسال وقبل تأكيد النتيجة. يظهر عدد القرارات وعمر أقدم قرار، وتظهر النسخة المحفوظة بوضوح عند تعذر الاتصال. لا يصدر الهاتف كودًا، والتوقيع ما زال متوقفًا.
+
+M05 adds a staged client for the hub's audit mirror (`audit/AuditMirrorClient.kt`) and the matching Worker routes live in Apps-Factory. The app does not call it yet and an older hub answers "not available". Details and the verification that was and was not run are in [ROADMAP.md](ROADMAP.md#m05--audit-mirror-contract-and-staged-client-2026-10-11-source-verified-in-part).
+
+المرحلة M05 تضيف عميلًا مرحليًا لنسخة سجل المراجعة على المركز، ولا يستدعيه التطبيق بعد. لا يرسل الهاتف رموزًا ولا أسماء عملاء ولا مبالغ، والمركز الأقدم يرد «غير متاح» دون أن يظهر شيء للمالك.
+
+M06 (encrypted backup core) is tested pure logic and is **not wired into any screen**: there is no backup button and no restore, and cross-device recovery is not available. M07 replaces the six-tab bar with five roots (Home, Requests, Customers, Alerts, More) and paired Arabic/English labels; its Compose shell is written but **has not been compiled or run**. See [ROADMAP.md](ROADMAP.md) for what was and was not run.
+
+النسخ الاحتياطي (M06) منطق مُختبَر فقط وغير مربوط بأي شاشة، ولا يوجد زر نسخ أو استعادة. التنقل الجديد (M07) مكتوب لكنه لم يُبنَ ولم يُجرَّب على هاتف بعد، والاسترداد على هاتف آخر غير متاح.

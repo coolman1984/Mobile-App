@@ -94,6 +94,63 @@ Remaining M04 limits / safe subset:
 - Outbox encryption fails closed when its separate Keystore key cannot round-trip; no plaintext fallback. Hardware Keystore proof, real handset install/offline/kill/notification drills, screenshots, TalkBack/large-font AR/EN review and emulator migration harness are **UNVERIFIED** here. Notifications use at-most-once attempts: permission denial or a crash between receipt and posting can suppress a notice; the in-app inbox remains authoritative.
 - Local outbox/cache history is retained without a destructive purge; no portable backup is claimed (M06/follow-on recovery). Remote audit upload remains M05. Signing and release signing remain OFF. Independent review, a PR and CI on the exact commit are pending; this session makes a local commit only, as requested.
 
+## M05 — audit mirror contract and staged client (2026-10-11, source verified in part)
+
+Two repositories, one contract. The Worker side lives in Apps-Factory (`templates/telemetry-relay/src/audit.js`, table `owner_audit`, `POST /audit/append`, `GET /audit/recent`, admin token only). This repository adds the phone's client. **Nothing in the app calls it yet**: no screen, no worker job and no setting changed, so the app behaves exactly as after M04.
+
+- `audit/AuditMirrorClient.kt` (pure Kotlin) appends a `ChainLink` as `{entry, previousHash, entryHash}` where `entry` is the stored canonical text, never rebuilt. It uses the owner token only, never the pull token, and never `/ack`. `rejectedHubPath` allows exactly `POST /audit/append` and `GET /audit/recent`.
+- Outcomes are explicit: `Ok`, `Conflict(head)` (409), `NotAvailable` (404/405: an older Worker, baseline only), `AuthBlocked` (401/403), `Invalid` (400/413/507: retrying the same bytes cannot help), `Retry` (network, 429, 5xx: identical bytes are safe to resend), `BadResponse` (a 2xx it cannot trust) and `Rejected` (refused here before any request).
+- An append is confirmed only when the hub echoes the same event id, sequence and hash, and 201/200 agree with `replay` false/true. A page from `/audit/recent` is re-hashed row by row, checked for order, predecessor links, the chain id, the head, the cursor and genesis coverage before it is returned. A tampered, reordered, truncated or inconsistent page is `BadResponse`.
+- `AuditAnchor.compare` names how the phone's retained head relates to the hub's: in sync, hub behind, hub ahead, or mismatch. A mismatch is to be shown, never repaired silently.
+- Cross-implementation proof: `templates/telemetry-relay/test/audit-phone-chain.json` was produced by `AuditCanonical.link` (a chain with quotes, a backslash, a tab, a newline, Arabic and a decomposed accent) and the Worker test accepts it and returns the same bytes. The shared golden entry in `app/src/test/resources/audit/golden-v1.json` is accepted by the Worker byte for byte.
+
+Verification actually run:
+
+- `cd templates/telemetry-relay && npm test` (Node 22.22): 66 tests passed, 17 of them new for the audit mirror (auth classes, canonical form, hash chain, gap/fork/other-device conflicts, concurrent writers, caps, append-only triggers, privacy, D1 query counts).
+- The Android SDK cannot be downloaded in this environment, so `gradle :app:testDebugUnitTest :app:assembleDebug` was **NOT run** and neither was CI. Instead the Android-free sources (`HubLogic`, `HubClient`, `DemoState`, `domain/Clock`, `audit/{CanonicalJson,AuditChain,AuditText,AuditRedaction,AuditMirrorClient}`) were compiled with a standalone Kotlin 2.1.20 compiler and `AuditMirrorClientTest` (14 new tests) plus `HubLogicTest`, `DemoStateTest` and `AuditChainTest` ran green with JUnit 4.13.2 and kotlinx-serialization 1.8.1 (36 tests). That is evidence about the pure logic only; it is not the project's own build.
+
+Still open, on purpose:
+
+- No mirror job: nothing reads the local chain, calls the client, stores a mirror cursor or retries. Mirror progress must live in the outbox/cursor tables, never in audit rows, and a sync run is summarised, not mirrored entry by entry (see IMPLEMENTATION_PLAN section 6.2). That is a later milestone.
+- The Worker change is **not deployed**. `schema.sql` must be re-run on D1 first, and the two append-only triggers in it have not been tried on live D1. Until then the app would see `NotAvailable`.
+- `GET /owner/capabilities` (a negotiated capability check) is M13. The client currently infers "not available" from 404/405.
+- A shared admin token is not a cryptographic identity: the mirror shows tampering against a retained head; it cannot prove who wrote an entry.
+- Independent review, a PR and CI on the exact commit are pending; this session pushes the branch only.
+
+## M06 — encrypted backup core (2026-10-11, pure logic verified, not wired)
+
+Source only, and **not connected to anything the owner can touch**: no screen, no WorkManager job, no Room snapshot, no file picker. What exists is the part that must be right before those are built.
+
+- `backup/BackupArchive.kt`: the archive `PPOB` | format | manifest length | manifest | nonce | AES-256-GCM(files). The manifest (canonical JSON: format and database versions, snapshot id, sizes and SHA-256 per file, audit chain heads, hub profile ids, key mode) is readable without the key and **authenticated** as GCM associated data, so a changed manifest or file fails to open. The same answer is given for a wrong key and a changed byte. Names are restricted, the number of files and the sizes are capped, and the build refuses to output anything that still contains the plain SQLite header.
+- `backup/BackupRestore.kt`: `RestorePlanner.check` refuses a newer database version before it tries the key, then opens, verifies hashes and requires the database and the logical export. It returns the notices the owner must see before confirming: tokens must be entered again, every queued decision comes back as "needs review", a new audit chain starts after the restored one, signing stays OFF. `quarantine` turns every active outbox state into NEEDS_REVIEW and leaves finished ones alone.
+- `backup/BackupCoordinator.kt`: takes a snapshot through `SnapshotSource.quiesced` (writers and sync paused, WAL checkpointed, database closed, reopened in `finally`), seals it and writes through `BackupSink` (temporary name, then atomic commit). A failure at any stage discards the temporary file and leaves the last good artifact untouched. The destination only ever receives sealed bytes.
+- `backup/KeystoreBackupKey.kt`: the default device-bound, non-exportable key, with a round-trip probe and no plaintext fallback. It cannot recover a backup after phone loss, uninstall or on another phone. It follows `KeystoreOutboxSealer` and is the one Android file here: it is **UNVERIFIED**.
+
+Verification actually run: `BackupTest` (16 tests: round trip, no plaintext, fresh nonce, wrong key vs tamper, authenticated manifest, truncation/format/magic, name and size limits, a leaking sealer is caught, restore notices, newer schema before key, missing files, spliced manifest, outbox quarantine, coordinator failure at every stage keeps the last good file and reopens) passed with the standalone Kotlin compiler and JUnit, in the same scratch project as M05. `gradle :app:testDebugUnitTest :app:assembleDebug` was **NOT run** (no Android SDK here), and neither was CI.
+
+**NOT IMPLEMENTED** (each is its own piece of work): the Room-backed `SnapshotSource` and the logical JSON exporter; the SAF destination and persisted tree permission; the daily WorkManager job and "Back up now"; the restore screen, reauthentication and the atomic replacement of the live database; starting the new audit chain from the restored head; streaming (the archive is built in memory and capped at 64 MiB, larger snapshots fail with TOO_LARGE); portable recovery with an owner-held secret; the instrumented Keystore, migration and clean-phone restore drills. Cross-device recovery is therefore **not available**, and no screen may promise it.
+
+## M07 — navigation model, bilingual strings and the new shell (2026-10-11, logic verified, shell UNVERIFIED)
+
+The pure model is tested. The Compose shell that draws it is written but **was never compiled or run**: the Android SDK and Google's Maven repository are both unreachable here, so only the model, the resources and a stub-based type check of `NavUi.kt` could be run. Treat the shell as unreviewed until `gradle :app:testDebugUnitTest :app:assembleDebug` and a handset pass.
+
+Model (`navigation/`, no Android types):
+- `Destinations.kt`: one table of every destination from the plan's map (five roots, details, the More categories, settings pages, the licence-codes module), each with a path holding at most one opaque `{id}`, its root, an optional More category and an optional capability.
+- `Route.kt`: `Route.parse` is the only way in from outside text. It refuses queries, fragments, `..`, `%`, control characters, ids over 64 characters and long hex strings (token or hash shaped), and reads `payment/new` as a literal.
+- `NavState.kt`: five remembered root stacks; reselecting a root pops to it; the same route twice stacks once; Back closes sheet, then drawer, then detail, then goes Home, then asks to exit; `OneShot` hands an event over exactly once; `encode`/`decode` survive a rotation or recreation (paths only, overlays closed, unsafe or duplicate entries dropped, depth capped).
+- `DeepLink.kt`: nothing opens while locked; the link is kept and decided again after unlock with the capabilities granted then. A screen that needs the hub explains when there is none; every licence-codes screen is "unavailable" while `REAL_ISSUANCE_ENABLED` is false.
+- `NavLayout.kt`: bottom bar below 600dp, rail from 600dp; badge counts only, capped at 99+.
+- Resources: `values/strings.xml` (Arabic) and `values-en/strings.xml` hold the same 60 keys; a test fails if a key is missing, empty or orphaned, English text contains Arabic letters, or a placeholder differs. The English app name is now "Pixel Plus Owner" on English-language phones.
+
+Shell (`OwnerApp.kt`, `NavUi.kt`), changed in this step:
+- The six-tab bar is replaced by the five roots (Home, Requests, Customers, Alerts, More) as a bottom bar, or a rail from 600dp. Badges show pending requests and unread alerts. The root state is saved across recreation (`rememberSaveable`) and the system Back goes through the reducer (`BackHandler`).
+- Customers shows the existing fictional-companies screen (the real customer book is M11). Settings and the disabled Licence Codes explanation moved under More; More lists every category and marks entries that have no screen yet. Any destination without a screen, or without its capability, opens an explanation instead of a half screen.
+- The request decision flow, the queue, the settings form and the hub refresh code are untouched.
+
+Verification actually run: `NavigationTest` (18 tests) with the standalone Kotlin compiler; with M05/M06 and the existing `HubLogicTest`, `DemoStateTest`, `AuditChainTest` the scratch run was 70 tests, all green. `NavUi.kt` type-checked against hand-written Compose stubs (which proves my own code, not the real signatures). `OwnerApp.kt` was only checked for syntax, because its other dependencies (WorkManager, Room, Keystore) cannot be compiled here. Gradle and CI were **NOT run**.
+
+**NOT IMPLEMENTED**: the categorised drawer (the More tab carries the categories instead; `drawerOpen` exists in the state but nothing opens it), the bottom sheet, deep-link intake in `MainActivity` (the manifest has no deep-link filter on purpose; there is no app lock yet, M09), a language setting (all existing screen text is still hard-coded Arabic, so an English phone sees English tab labels over Arabic screens), the screens behind most destinations, and the emulator navigation/RTL smoke test.
+
 ## P2 — authenticated cloud request/alert read (remaining)
 - Read existing Control Center API and relay, map data contracts and authorization gaps.
 - Implement opt-in backend adaptor with one synthetic data tenant first: login/MFA, revocable device tokens, server-side scoped company access, read-only request inbox, alerts and device/company overview.

@@ -2,6 +2,7 @@ package com.pixelplus.owner
 
 import android.os.Handler
 import android.os.Looper
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,8 +15,6 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -27,25 +26,27 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.Saver
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.pixelplus.owner.navigation.DeepLinks
+import com.pixelplus.owner.navigation.Destinations
+import com.pixelplus.owner.navigation.NavEvent
+import com.pixelplus.owner.navigation.NavLayout
+import com.pixelplus.owner.navigation.NavMode
+import com.pixelplus.owner.navigation.NavReducer
+import com.pixelplus.owner.navigation.NavState
+import com.pixelplus.owner.navigation.RootTab
+import com.pixelplus.owner.navigation.Route
 import java.util.concurrent.atomic.AtomicBoolean
-
-private enum class Tab(val title: String, val emoji: String) {
-    HOME("الرئيسية", "🏠"),
-    COMPANIES("الشركات", "🏢"),
-    REQUESTS("الطلبات", "🔑"),
-    ALERTS("التنبيهات", "🔔"),
-    CODES("الأكواد", "🛡️"),
-    SETTINGS("الإعدادات", "⚙️")
-}
 
 private data class PendingDecision(val id: String, val action: OwnerAction, val kind: String)
 
@@ -58,7 +59,10 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
     val main = remember { Handler(Looper.getMainLooper()) }
     var config by remember { mutableStateOf(store.read()) }
     var demo by remember { mutableStateOf(DemoSeed.state()) }
-    var tab by remember { mutableStateOf(Tab.HOME) }
+    var nav by rememberSaveable(
+        stateSaver = Saver<NavState, ArrayList<String>>(save = { ArrayList(it.encode()) }, restore = { NavState.decode(it) }),
+    ) { mutableStateOf(NavState()) }
+    val dispatch: (NavEvent) -> Unit = { event -> nav = NavReducer.reduce(nav, event).state }
     var generation by remember { mutableStateOf(0) }
     var liveRequests by remember { mutableStateOf<List<LicenceRequest>?>(null) }
     var liveEvents by remember { mutableStateOf<List<LicenceEvent>?>(null) }
@@ -154,23 +158,26 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
 
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
         MaterialTheme {
+            val mode = NavLayout.mode(LocalConfiguration.current.screenWidthDp)
+            val badges = NavLayout.badges(
+                pendingRequests = requestsView.cards.count { it.pending },
+                unreadAlerts = alertsView.cards.count { !it.read },
+                blockedQueue = 0,
+            )
+            val granted = DeepLinks.granted(config.isLive, REAL_ISSUANCE_ENABLED)
+            BackHandler(
+                enabled = nav.sheetOpen || nav.drawerOpen || nav.stacks.getValue(nav.root).isNotEmpty() || nav.root != RootTab.HOME,
+            ) { dispatch(NavEvent.Back) }
             Scaffold(
                 bottomBar = {
-                    NavigationBar {
-                        Tab.entries.forEach { item ->
-                            NavigationBarItem(
-                                selected = tab == item,
-                                onClick = { tab = item },
-                                icon = { Text(item.emoji) },
-                                label = { Text(item.title, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                            )
-                        }
-                    }
+                    if (mode == NavMode.BOTTOM_BAR) RootBar(nav.root, badges) { dispatch(NavEvent.SelectRoot(it)) }
                 }
             ) { inner ->
+              Row(Modifier.padding(inner)) {
+                if (mode == NavMode.RAIL) RootRail(nav.root, badges) { dispatch(NavEvent.SelectRoot(it)) }
                 Column(
                     modifier = Modifier
-                        .padding(inner)
+                        .weight(1f)
                         .verticalScroll(rememberScrollState())
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -201,23 +208,30 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
                     if (config.isLive && cachedAt != null) SyncStatusText(com.pixelplus.owner.sync.SyncCopy.cachedSnapshot(cachedAt!!).display)
                     if (config.isLive && queueLine.isNotBlank()) SyncStatusText(queueLine)
                     decisionMessage?.let { message -> SyncStatusText(message) }
-                    when (tab) {
-                        Tab.HOME -> HomeScreen(homeLines(config, demo, liveRequests, liveEvents)) { tab = it }
-                        Tab.COMPANIES -> CompaniesScreen(companiesView, demo) { demo = demo.chooseCompany(it) }
-                        Tab.REQUESTS -> RequestsScreen(
+                    val here = nav.top
+                    if (here.dest.root.path != here.dest.pattern) {
+                        Text(labelOf(here.dest.labelKey), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    }
+                    val blocked = reasonFor(here, granted)
+                    when (if (blocked != null && here.dest.id != "codes") "unavailable" else here.dest.id) {
+                        "unavailable" -> UnavailableScreen(here, blocked ?: "unavailable_not_built")
+                        "home" -> HomeScreen(homeLines(config, demo, liveRequests, liveEvents)) { dispatch(NavEvent.Open(it)) }
+                        "more" -> MoreScreen { dispatch(NavEvent.Open(it)) }
+                        "customers" -> CompaniesScreen(companiesView, demo) { demo = demo.chooseCompany(it) }
+                        "requests" -> RequestsScreen(
                             view = requestsView,
                             deciding = deciding,
                             onDemo = { id, next -> demo = demo.markRequest(id, next) },
                             onDecide = { card, action -> pendingDecision = PendingDecision(card.id, action, card.kind) },
                             onRefresh = { generation += 1 }
                         )
-                        Tab.ALERTS -> AlertsScreen(
+                        "alerts" -> AlertsScreen(
                             view = alertsView,
                             onRead = { demo = demo.markAlertRead(it) },
                             onRefresh = { generation += 1 }
                         )
-                        Tab.CODES -> CodesScreen()
-                        Tab.SETTINGS -> SettingsScreen(
+                        "codes" -> CodesScreen()
+                        "settings" -> SettingsScreen(
                             saved = config,
                             encryptionAvailable = store.encryptionAvailable,
                             testing = testing,
@@ -275,8 +289,10 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
                                 }.start()
                             }
                         )
+                        else -> UnavailableScreen(here, "unavailable_not_built")
                     }
                 }
+              }
             }
             pendingDecision?.let { choice ->
                 AlertDialog(
@@ -329,16 +345,16 @@ private fun confirmText(choice: PendingDecision): String {
 }
 
 @Composable
-private fun HomeScreen(lines: List<HomeLine>, navigate: (Tab) -> Unit) {
+private fun HomeScreen(lines: List<HomeLine>, navigate: (Route) -> Unit) {
     SectionTitle("ملخص اليوم")
     lines.forEach { line -> Metric(line.label, line.value) }
-    Button(onClick = { navigate(Tab.REQUESTS) }, modifier = Modifier.fillMaxWidth()) {
+    Button(onClick = { navigate(Route.root(RootTab.REQUESTS)) }, modifier = Modifier.fillMaxWidth()) {
         Text("افتح طلبات التفعيل")
     }
-    OutlinedButton(onClick = { navigate(Tab.ALERTS) }, modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(onClick = { navigate(Route.root(RootTab.ALERTS)) }, modifier = Modifier.fillMaxWidth()) {
         Text("راجع التنبيهات")
     }
-    OutlinedButton(onClick = { navigate(Tab.SETTINGS) }, modifier = Modifier.fillMaxWidth()) {
+    OutlinedButton(onClick = { navigate(Route(Destinations.byId.getValue("settings"))) }, modifier = Modifier.fillMaxWidth()) {
         Text("الإعدادات")
     }
 }
