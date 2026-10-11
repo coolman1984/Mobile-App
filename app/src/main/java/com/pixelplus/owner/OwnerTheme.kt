@@ -13,6 +13,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
@@ -47,6 +48,7 @@ internal fun OwnerTheme(appearance: ResolvedAppearance, content: @Composable () 
 }
 
 /** Cairo is one variable font file; each weight is the same file with a different weight axis (Android 8 and up, the app's minimum). */
+@OptIn(ExperimentalTextApi::class)
 private fun cairoFamily(): FontFamily = FontFamily(
     listOf(400 to FontWeight.Normal, 500 to FontWeight.Medium, 600 to FontWeight.SemiBold, 700 to FontWeight.Bold).map { (axis, weight) ->
         Font(R.font.cairo, weight, variationSettings = FontVariation.Settings(FontVariation.weight(axis)))
