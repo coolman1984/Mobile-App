@@ -93,7 +93,7 @@ object AndroidRestore {
                 db.runInTransaction {
                     raw.query("SELECT count(*) FROM outbox WHERE status IN ($ACTIVE_STATUSES)").use { if (it.moveToFirst()) count = it.getInt(0) }
                     raw.execSQL("UPDATE outbox SET status = 'NEEDS_REVIEW', lastErrorCode = 'restored', leaseUntil = NULL WHERE status IN ($ACTIVE_STATUSES)")
-                    raw.execSQL("UPDATE hub_profiles SET dispatchPaused = 1")
+                    raw.execSQL("UPDATE hub_profiles SET dispatchPaused = 1, revision = revision + 1, updatedAtUtcMs = max(createdAtUtcMs, $nowUtcMs) WHERE dispatchPaused = 0")
                     val workspace = raw.query("SELECT id FROM workspaces ORDER BY createdAtUtcMs LIMIT 1").use { if (it.moveToFirst()) it.getString(0) else null }
                     if (workspace != null) {
                         AuditWriter(db).append(
