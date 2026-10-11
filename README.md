@@ -68,3 +68,7 @@ M04 adds a durable encrypted decision queue and safe hub metadata cache. Confirm
 M05 adds a staged client for the hub's audit mirror (`audit/AuditMirrorClient.kt`) and the matching Worker routes live in Apps-Factory. The app does not call it yet and an older hub answers "not available". Details and the verification that was and was not run are in [ROADMAP.md](ROADMAP.md#m05--audit-mirror-contract-and-staged-client-2026-10-11-source-verified-in-part).
 
 المرحلة M05 تضيف عميلًا مرحليًا لنسخة سجل المراجعة على المركز، ولا يستدعيه التطبيق بعد. لا يرسل الهاتف رموزًا ولا أسماء عملاء ولا مبالغ، والمركز الأقدم يرد «غير متاح» دون أن يظهر شيء للمالك.
+
+M06 (encrypted backup core: archive format, restore checks, snapshot coordinator) and M07 (navigation model, deep-link gate, paired Arabic/English strings) are in the source as tested pure logic and are **not wired into any screen yet**. There is no backup button, no restore and no new navigation in the app, and cross-device recovery is not available. See [ROADMAP.md](ROADMAP.md) for what was and was not run.
+
+M06 و M07 موجودان في الكود كمنطق مُختبَر فقط ولم يُربطا بأي شاشة بعد. لا يوجد زر نسخ احتياطي ولا استعادة ولا تنقل جديد في التطبيق، والاسترداد على هاتف آخر غير متاح.

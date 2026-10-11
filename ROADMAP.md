@@ -117,6 +117,34 @@ Still open, on purpose:
 - A shared admin token is not a cryptographic identity: the mirror shows tampering against a retained head; it cannot prove who wrote an entry.
 - Independent review, a PR and CI on the exact commit are pending; this session pushes the branch only.
 
+## M06 — encrypted backup core (2026-10-11, pure logic verified, not wired)
+
+Source only, and **not connected to anything the owner can touch**: no screen, no WorkManager job, no Room snapshot, no file picker. What exists is the part that must be right before those are built.
+
+- `backup/BackupArchive.kt`: the archive `PPOB` | format | manifest length | manifest | nonce | AES-256-GCM(files). The manifest (canonical JSON: format and database versions, snapshot id, sizes and SHA-256 per file, audit chain heads, hub profile ids, key mode) is readable without the key and **authenticated** as GCM associated data, so a changed manifest or file fails to open. The same answer is given for a wrong key and a changed byte. Names are restricted, the number of files and the sizes are capped, and the build refuses to output anything that still contains the plain SQLite header.
+- `backup/BackupRestore.kt`: `RestorePlanner.check` refuses a newer database version before it tries the key, then opens, verifies hashes and requires the database and the logical export. It returns the notices the owner must see before confirming: tokens must be entered again, every queued decision comes back as "needs review", a new audit chain starts after the restored one, signing stays OFF. `quarantine` turns every active outbox state into NEEDS_REVIEW and leaves finished ones alone.
+- `backup/BackupCoordinator.kt`: takes a snapshot through `SnapshotSource.quiesced` (writers and sync paused, WAL checkpointed, database closed, reopened in `finally`), seals it and writes through `BackupSink` (temporary name, then atomic commit). A failure at any stage discards the temporary file and leaves the last good artifact untouched. The destination only ever receives sealed bytes.
+- `backup/KeystoreBackupKey.kt`: the default device-bound, non-exportable key, with a round-trip probe and no plaintext fallback. It cannot recover a backup after phone loss, uninstall or on another phone. It follows `KeystoreOutboxSealer` and is the one Android file here: it is **UNVERIFIED**.
+
+Verification actually run: `BackupTest` (16 tests: round trip, no plaintext, fresh nonce, wrong key vs tamper, authenticated manifest, truncation/format/magic, name and size limits, a leaking sealer is caught, restore notices, newer schema before key, missing files, spliced manifest, outbox quarantine, coordinator failure at every stage keeps the last good file and reopens) passed with the standalone Kotlin compiler and JUnit, in the same scratch project as M05. `gradle :app:testDebugUnitTest :app:assembleDebug` was **NOT run** (no Android SDK here), and neither was CI.
+
+**NOT IMPLEMENTED** (each is its own piece of work): the Room-backed `SnapshotSource` and the logical JSON exporter; the SAF destination and persisted tree permission; the daily WorkManager job and "Back up now"; the restore screen, reauthentication and the atomic replacement of the live database; starting the new audit chain from the restored head; streaming (the archive is built in memory and capped at 64 MiB, larger snapshots fail with TOO_LARGE); portable recovery with an owner-held secret; the instrumented Keystore, migration and clean-phone restore drills. Cross-device recovery is therefore **not available**, and no screen may promise it.
+
+## M07 — navigation model and bilingual strings (2026-10-11, pure logic verified, not wired)
+
+Source only. The running app still uses its old six-tab `OwnerApp`; per the plan the UI stays on the existing route until its replacement passes, and Navigation Compose stays out of the APK. This milestone adds the part that can be tested without a handset.
+
+- `navigation/Destinations.kt`: one table of every destination from the plan's map (five roots, details, the More categories, settings pages, the licence-codes module). Each has a path with at most one opaque `{id}`, its root, an optional More category and an optional capability.
+- `navigation/Route.kt`: `Route.parse` is the only way in from outside text. It refuses queries, fragments, `..`, `%`, control characters, ids over 64 characters and long hex strings (token or hash shaped), and reads `payment/new` as a literal, never an id.
+- `navigation/NavState.kt`: five remembered root stacks; reselecting a root pops to it; opening the same route twice stacks it once; Back closes sheet, then drawer, then detail, then goes Home, then asks to exit; `OneShot` hands an event to the screen exactly once across a rebuild.
+- `navigation/DeepLink.kt`: nothing opens while locked; the link is kept and decided again after unlock with the capabilities granted at that time. A screen that needs the hub explains it when there is none; every licence-codes screen is "unavailable" while signing is off.
+- `navigation/NavLayout.kt`: bottom bar below 600dp, rail from 600dp; badge counts only, capped at 99+.
+- Resources: `values/strings.xml` (Arabic) and the new `values-en/strings.xml` hold the same 58 keys; a test fails if a key is missing, empty, orphaned, English text contains Arabic letters, or a placeholder differs. The English app name is now "Pixel Plus Owner" on English-language phones.
+
+Verification actually run: `NavigationTest` (16 tests) with the standalone Kotlin compiler; together with M05/M06 and the existing `HubLogicTest`, `DemoStateTest`, `AuditChainTest` the scratch run was 68 tests, all green. Gradle and CI were **NOT run**.
+
+**NOT IMPLEMENTED**: the Compose shell (bottom bar, rail, drawer, More screen, retained root state), reading the string keys from `R`, the back handler, wiring deep links into `MainActivity` and the lock, the screens behind the destinations, and the emulator navigation/RTL smoke test. Most More entries will show the "not connected yet" text until their milestones exist.
+
 ## P2 — authenticated cloud request/alert read (remaining)
 - Read existing Control Center API and relay, map data contracts and authorization gaps.
 - Implement opt-in backend adaptor with one synthetic data tenant first: login/MFA, revocable device tokens, server-side scoped company access, read-only request inbox, alerts and device/company overview.
