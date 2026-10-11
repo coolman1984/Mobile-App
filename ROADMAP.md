@@ -94,6 +94,29 @@ Remaining M04 limits / safe subset:
 - Outbox encryption fails closed when its separate Keystore key cannot round-trip; no plaintext fallback. Hardware Keystore proof, real handset install/offline/kill/notification drills, screenshots, TalkBack/large-font AR/EN review and emulator migration harness are **UNVERIFIED** here. Notifications use at-most-once attempts: permission denial or a crash between receipt and posting can suppress a notice; the in-app inbox remains authoritative.
 - Local outbox/cache history is retained without a destructive purge; no portable backup is claimed (M06/follow-on recovery). Remote audit upload remains M05. Signing and release signing remain OFF. Independent review, a PR and CI on the exact commit are pending; this session makes a local commit only, as requested.
 
+## M05 — audit mirror contract and staged client (2026-10-11, source verified in part)
+
+Two repositories, one contract. The Worker side lives in Apps-Factory (`templates/telemetry-relay/src/audit.js`, table `owner_audit`, `POST /audit/append`, `GET /audit/recent`, admin token only). This repository adds the phone's client. **Nothing in the app calls it yet**: no screen, no worker job and no setting changed, so the app behaves exactly as after M04.
+
+- `audit/AuditMirrorClient.kt` (pure Kotlin) appends a `ChainLink` as `{entry, previousHash, entryHash}` where `entry` is the stored canonical text, never rebuilt. It uses the owner token only, never the pull token, and never `/ack`. `rejectedHubPath` allows exactly `POST /audit/append` and `GET /audit/recent`.
+- Outcomes are explicit: `Ok`, `Conflict(head)` (409), `NotAvailable` (404/405: an older Worker, baseline only), `AuthBlocked` (401/403), `Invalid` (400/413/507: retrying the same bytes cannot help), `Retry` (network, 429, 5xx: identical bytes are safe to resend), `BadResponse` (a 2xx it cannot trust) and `Rejected` (refused here before any request).
+- An append is confirmed only when the hub echoes the same event id, sequence and hash, and 201/200 agree with `replay` false/true. A page from `/audit/recent` is re-hashed row by row, checked for order, predecessor links, the chain id, the head, the cursor and genesis coverage before it is returned. A tampered, reordered, truncated or inconsistent page is `BadResponse`.
+- `AuditAnchor.compare` names how the phone's retained head relates to the hub's: in sync, hub behind, hub ahead, or mismatch. A mismatch is to be shown, never repaired silently.
+- Cross-implementation proof: `templates/telemetry-relay/test/audit-phone-chain.json` was produced by `AuditCanonical.link` (a chain with quotes, a backslash, a tab, a newline, Arabic and a decomposed accent) and the Worker test accepts it and returns the same bytes. The shared golden entry in `app/src/test/resources/audit/golden-v1.json` is accepted by the Worker byte for byte.
+
+Verification actually run:
+
+- `cd templates/telemetry-relay && npm test` (Node 22.22): 66 tests passed, 17 of them new for the audit mirror (auth classes, canonical form, hash chain, gap/fork/other-device conflicts, concurrent writers, caps, append-only triggers, privacy, D1 query counts).
+- The Android SDK cannot be downloaded in this environment, so `gradle :app:testDebugUnitTest :app:assembleDebug` was **NOT run** and neither was CI. Instead the Android-free sources (`HubLogic`, `HubClient`, `DemoState`, `domain/Clock`, `audit/{CanonicalJson,AuditChain,AuditText,AuditRedaction,AuditMirrorClient}`) were compiled with a standalone Kotlin 2.1.20 compiler and `AuditMirrorClientTest` (14 new tests) plus `HubLogicTest`, `DemoStateTest` and `AuditChainTest` ran green with JUnit 4.13.2 and kotlinx-serialization 1.8.1 (36 tests). That is evidence about the pure logic only; it is not the project's own build.
+
+Still open, on purpose:
+
+- No mirror job: nothing reads the local chain, calls the client, stores a mirror cursor or retries. Mirror progress must live in the outbox/cursor tables, never in audit rows, and a sync run is summarised, not mirrored entry by entry (see IMPLEMENTATION_PLAN section 6.2). That is a later milestone.
+- The Worker change is **not deployed**. `schema.sql` must be re-run on D1 first, and the two append-only triggers in it have not been tried on live D1. Until then the app would see `NotAvailable`.
+- `GET /owner/capabilities` (a negotiated capability check) is M13. The client currently infers "not available" from 404/405.
+- A shared admin token is not a cryptographic identity: the mirror shows tampering against a retained head; it cannot prove who wrote an entry.
+- Independent review, a PR and CI on the exact commit are pending; this session pushes the branch only.
+
 ## P2 — authenticated cloud request/alert read (remaining)
 - Read existing Control Center API and relay, map data contracts and authorization gaps.
 - Implement opt-in backend adaptor with one synthetic data tenant first: login/MFA, revocable device tokens, server-side scoped company access, read-only request inbox, alerts and device/company overview.
