@@ -414,7 +414,7 @@ fun rejectedHubPath(method: String, url: String): String? {
     val post = method.equals("POST", ignoreCase = true)
     val allowed = when {
         get && (path == "/licence/pending" || path == "/licence/events" || path == "/pull") -> true
-        get && path == "/audit/recent" -> true
+        get && (path == "/audit/recent" || path == "/installs" || path == "/licence/history" || path == "/owner/capabilities") -> true
         post && (path == "/licence/decide" || path == "/licence/states" || path == "/audit/append") -> true
         post && path == "/installs" -> return "installs"
         else -> false

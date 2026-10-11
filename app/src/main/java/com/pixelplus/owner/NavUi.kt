@@ -33,10 +33,13 @@ import com.pixelplus.owner.navigation.RootTab
  */
 
 /** Real code issuing is off in this build. The licence-codes screens stay "unavailable". */
-internal const val REAL_ISSUANCE_ENABLED = false
+internal const val REAL_ISSUANCE_ENABLED = com.pixelplus.owner.licensing.OwnerBuild.REAL_ISSUANCE_ENABLED
 
 /** Destinations that have a real screen in this build. Every other destination shows an honest "not available yet". */
-internal val BUILT_DESTINATIONS = setOf("home", "requests", "customers", "alerts", "more", "settings", "codes")
+internal val BUILT_DESTINATIONS = setOf(
+    "home", "requests", "customers", "alerts", "more", "settings", "codes",
+    "settings_appearance", "settings_lock", "settings_backup", "activity", "money", "followups", "licences", "installs",
+)
 
 @Composable
 internal fun labelOf(key: String): String {
@@ -129,3 +132,6 @@ internal fun reasonFor(route: Route, granted: Set<Capability>): String? {
         else -> null
     }
 }
+
+internal fun deviceIsSecure(context: android.content.Context): Boolean =
+    (context.getSystemService(android.content.Context.KEYGUARD_SERVICE) as? android.app.KeyguardManager)?.isDeviceSecure == true

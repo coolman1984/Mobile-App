@@ -37,6 +37,8 @@ object AuditVocab {
     const val ENTITY_LINK = "link"
     const val ENTITY_PAYMENT = "payment"
     const val ENTITY_DECISION = "decision"
+    const val ENTITY_NOTE = "note"
+    const val ENTITY_FOLLOW_UP = "follow_up"
 
     const val RESULT_INTENT = "intent"
     const val RESULT_SUCCESS = "success"
@@ -74,6 +76,8 @@ object AuditVocab {
         ENTITY_LINK,
         ENTITY_PAYMENT,
         ENTITY_DECISION,
+        ENTITY_NOTE,
+        ENTITY_FOLLOW_UP,
     )
     val RESULTS = setOf(
         RESULT_INTENT,
@@ -190,6 +194,8 @@ object AuditText {
         AuditVocab.ENTITY_HUB -> AuditExplanation("تم حفظ عنوان المركز.", "Hub address was saved.")
         AuditVocab.ENTITY_LINK -> AuditExplanation("تم ربط العميل بسجل في المركز.", "Customer was linked to a hub record.")
         AuditVocab.ENTITY_PAYMENT -> AuditExplanation("تم تسجيل دفعة محلية.", "A local payment was recorded.")
+        AuditVocab.ENTITY_NOTE -> AuditExplanation("تمت إضافة ملاحظة على عميل.", "A note was added to a customer.")
+        AuditVocab.ENTITY_FOLLOW_UP -> AuditExplanation("تمت إضافة متابعة.", "A follow-up was added.")
         else -> AuditExplanation("تم إنشاء السجل.", "Record was created.")
     }
 
@@ -198,6 +204,7 @@ object AuditText {
         AuditVocab.ENTITY_CUSTOMER -> AuditExplanation("تم تغيير حالة العميل.", "Customer status was changed.")
         AuditVocab.ENTITY_HUB -> AuditExplanation("تم تغيير عنوان المركز.", "Hub address was changed.")
         AuditVocab.ENTITY_PRODUCT -> AuditExplanation("تم تغيير المنتج.", "Product was changed.")
+        AuditVocab.ENTITY_FOLLOW_UP -> AuditExplanation("تم إنجاز متابعة.", "A follow-up was completed.")
         else -> AuditExplanation("تم تغيير السجل.", "Record was changed.")
     }
 }

@@ -376,7 +376,7 @@ class SyncTest {
         raw.execSQL("PRAGMA user_version = 2"); raw.close()
         reopen()
         assertEquals("Synthetic office", db.ownerDao().workspace(workspace)!!.name)
-        assertEquals(3, db.openHelper.writableDatabase.version)
+        assertEquals(OwnerDatabase.VERSION, db.openHelper.writableDatabase.version)
         profile = store.ensureProfile(config.baseUrl, now + 1)!!
         assertEquals(1L, profile.credentialEpoch)
         assertFalse(profile.paused)

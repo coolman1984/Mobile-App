@@ -36,8 +36,11 @@ import com.pixelplus.owner.audit.RandomIdSource
         HubEventEntity::class,
         MailboxReceiptEntity::class,
         NotificationReceiptEntity::class,
+        NoteEntity::class,
+        FollowUpEntity::class,
+        PaymentEntity::class,
     ],
-    version = 3,
+    version = 4,
     exportSchema = true,
 )
 abstract class OwnerDatabase : RoomDatabase() {
@@ -59,7 +62,7 @@ abstract class OwnerDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "pixel-plus-owner.db"
-        const val VERSION = 3
+        const val VERSION = 4
 
         val TABLE_NAMES: List<String> = listOf(
             "workspaces",
@@ -77,6 +80,9 @@ abstract class OwnerDatabase : RoomDatabase() {
             "hub_events",
             "mailbox_receipts",
             "notification_receipts",
+            "notes",
+            "follow_ups",
+            "payment_entries",
         )
 
         fun open(

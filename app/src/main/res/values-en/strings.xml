@@ -19,6 +19,7 @@
     <string name="dest_licences">Licences</string>
     <string name="dest_licence">Licence details</string>
     <string name="dest_expiry_calendar">Expiry calendar</string>
+    <string name="dest_followups">Follow-ups</string>
     <string name="dest_money">Money</string>
     <string name="dest_payment_new">New payment</string>
     <string name="dest_payment_correction">Payment correction</string>

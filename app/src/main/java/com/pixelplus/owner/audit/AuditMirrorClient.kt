@@ -1,13 +1,7 @@
 package com.pixelplus.owner.audit
 
 import com.pixelplus.owner.HubConfig
-import com.pixelplus.owner.HubRequest
 import com.pixelplus.owner.HubTransport
-import com.pixelplus.owner.HubTransportResult
-import com.pixelplus.owner.UrlResult
-import com.pixelplus.owner.normalizeHubUrl
-import com.pixelplus.owner.parseErrorCode
-import com.pixelplus.owner.rejectedHubPath
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray as KJsonArray
 import kotlinx.serialization.json.JsonNull
@@ -108,34 +102,8 @@ class AuditMirrorClient(private val transport: HubTransport) {
         method: String,
         path: String,
         body: String?,
-        onSuccessOrConflict: (Int, String) -> MirrorResult<T>?,
-    ): MirrorResult<T> {
-        if (config.ownerToken.isBlank()) return MirrorResult.Rejected("no_token")
-        val base = when (val checked = normalizeHubUrl(config.baseUrl)) {
-            is UrlResult.Ok -> checked.url
-            is UrlResult.Reject -> return MirrorResult.Rejected(checked.reason)
-        }
-        val url = base + path
-        rejectedHubPath(method, url)?.let { return MirrorResult.Rejected(it) }
-        return when (val raw = transport.exchange(HubRequest(method, url, config.ownerToken, body))) {
-            is HubTransportResult.Failed -> MirrorResult.Retry(raw.kind)
-            is HubTransportResult.Response -> interpret(raw.code, raw.body, onSuccessOrConflict)
-        }
-    }
-
-    private fun <T> interpret(code: Int, text: String, handle: (Int, String) -> MirrorResult<T>?): MirrorResult<T> {
-        handle(code, text)?.let { return it }
-        val error = parseErrorCode(text) ?: "http"
-        return when {
-            code == 401 || code == 403 -> MirrorResult.AuthBlocked
-            code == 404 || code == 405 -> MirrorResult.NotAvailable
-            code == 429 || (code in 500..599 && code != 507) -> MirrorResult.Retry(error)
-            code == 507 -> MirrorResult.Invalid("full")
-            code == 400 || code == 413 || code == 409 -> MirrorResult.Invalid(error)
-            code in 200..299 -> MirrorResult.BadResponse("status")
-            else -> MirrorResult.Invalid(error)
-        }
-    }
+        handle: (Int, String) -> MirrorResult<T>?,
+    ): MirrorResult<T> = MirrorHttp(transport).exchange(config, method, path, body, handle)
 
     private fun parseAppended(text: String, draft: AuditDraft, link: ChainLink, replayExpected: Boolean): MirrorResult<Appended> {
         val root = obj(text) ?: return MirrorResult.BadResponse("shape")

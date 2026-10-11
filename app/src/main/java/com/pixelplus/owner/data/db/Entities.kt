@@ -21,6 +21,7 @@ import androidx.room.PrimaryKey
 internal object RecordRules {
     const val CIPHER_MIN = 29
     const val NAME_CIPHER_MAX = 1024
+    const val NOTE_CIPHER_MAX = 8192
     const val PHONE_CIPHER_MAX = 512
     const val LABEL_MAX = 80
     const val TRIAL_MIN = 1
@@ -316,4 +317,87 @@ data class CustomerLinkEntity(
     val remoteType: String,
     val remoteId: String,
     val linkedBy: String,
+)
+
+private const val RESTRICT = ForeignKey.RESTRICT
+
+/** A private note on a customer (M11). The body is sealed ciphertext; it never enters the audit chain. */
+@Entity(
+    tableName = "notes",
+    foreignKeys = [
+        ForeignKey(entity = WorkspaceEntity::class, parentColumns = ["id"], childColumns = ["workspaceId"], onDelete = RESTRICT, onUpdate = RESTRICT),
+        ForeignKey(entity = CustomerEntity::class, parentColumns = ["id"], childColumns = ["customerId"], onDelete = RESTRICT, onUpdate = RESTRICT),
+    ],
+    indices = [
+        Index(value = ["workspaceId"], name = "index_notes_workspace"),
+        Index(value = ["customerId", "updatedAtUtcMs"], name = "index_notes_customer"),
+    ],
+)
+data class NoteEntity(
+    @PrimaryKey val id: String,
+    val workspaceId: String,
+    val createdAtUtcMs: Long,
+    val updatedAtUtcMs: Long,
+    @ColumnInfo(defaultValue = "1") val revision: Long,
+    val deletedAtUtcMs: Long?,
+    val customerId: String,
+    @ColumnInfo(typeAffinity = ColumnInfo.BLOB) val encryptedBody: ByteArray,
+)
+
+/** A follow-up with a due time (UTC) and a reminder offset. The title is sealed ciphertext. */
+@Entity(
+    tableName = "follow_ups",
+    foreignKeys = [
+        ForeignKey(entity = WorkspaceEntity::class, parentColumns = ["id"], childColumns = ["workspaceId"], onDelete = RESTRICT, onUpdate = RESTRICT),
+        ForeignKey(entity = CustomerEntity::class, parentColumns = ["id"], childColumns = ["customerId"], onDelete = RESTRICT, onUpdate = RESTRICT),
+    ],
+    indices = [
+        Index(value = ["workspaceId"], name = "index_follow_ups_workspace"),
+        Index(value = ["customerId"], name = "index_follow_ups_customer"),
+        Index(value = ["deletedAtUtcMs", "completedAtUtcMs", "dueAtUtcMs"], name = "index_follow_ups_due"),
+    ],
+)
+data class FollowUpEntity(
+    @PrimaryKey val id: String,
+    val workspaceId: String,
+    val createdAtUtcMs: Long,
+    val updatedAtUtcMs: Long,
+    @ColumnInfo(defaultValue = "1") val revision: Long,
+    val deletedAtUtcMs: Long?,
+    val customerId: String?,
+    @ColumnInfo(typeAffinity = ColumnInfo.BLOB) val encryptedTitle: ByteArray,
+    val dueAtUtcMs: Long,
+    @ColumnInfo(defaultValue = "0") val reminderOffsetMin: Int,
+    val completedAtUtcMs: Long?,
+)
+
+/**
+ * A cash entry in minor units (M12). Posted entries are never edited or deleted (triggers refuse it). A correction is a new entry with
+ * the opposite amount that points at the original through [reversalOfId]; an original can be reversed once.
+ */
+@Entity(
+    tableName = "payment_entries",
+    foreignKeys = [
+        ForeignKey(entity = WorkspaceEntity::class, parentColumns = ["id"], childColumns = ["workspaceId"], onDelete = RESTRICT, onUpdate = RESTRICT),
+        ForeignKey(entity = CustomerEntity::class, parentColumns = ["id"], childColumns = ["customerId"], onDelete = RESTRICT, onUpdate = RESTRICT),
+        ForeignKey(entity = PaymentEntity::class, parentColumns = ["id"], childColumns = ["reversalOfId"], onDelete = RESTRICT, onUpdate = RESTRICT),
+    ],
+    indices = [
+        Index(value = ["workspaceId"], name = "index_payment_entries_workspace"),
+        Index(value = ["customerId"], name = "index_payment_entries_customer"),
+        Index(value = ["currency", "receivedAtUtcMs"], name = "index_payment_entries_currency_time"),
+        Index(value = ["reversalOfId"], name = "index_payment_entries_reversal", unique = true),
+    ],
+)
+data class PaymentEntity(
+    @PrimaryKey val id: String,
+    val workspaceId: String,
+    val createdAtUtcMs: Long,
+    val customerId: String,
+    val amountMinor: Long,
+    val currency: String,
+    val receivedAtUtcMs: Long,
+    @ColumnInfo(typeAffinity = ColumnInfo.BLOB) val encryptedReference: ByteArray?,
+    val reversalOfId: String?,
+    val correctionGroupId: String?,
 )
