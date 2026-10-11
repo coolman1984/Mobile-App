@@ -3,6 +3,8 @@ package com.pixelplus.owner
 import android.os.Handler
 import android.os.Looper
 import androidx.activity.compose.BackHandler
+import android.os.Build
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,7 +39,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import com.pixelplus.owner.domain.Kpi
+import com.pixelplus.owner.domain.RequestFact
+import com.pixelplus.owner.domain.RequestTab
+import com.pixelplus.owner.domain.RequestTabs
 import com.pixelplus.owner.navigation.DeepLinks
+import com.pixelplus.owner.ui.theme.Appearance
 import com.pixelplus.owner.navigation.Destinations
 import com.pixelplus.owner.navigation.NavEvent
 import com.pixelplus.owner.navigation.NavLayout
@@ -51,7 +58,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 private data class PendingDecision(val id: String, val action: OwnerAction, val kind: String)
 
 @Composable
-fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
+fun OwnerApp(prefs: OwnerPrefs, onRequestNotifications: () -> Unit = {}) {
     val context = LocalContext.current
     val activity = context as? android.app.Activity
     val store = remember { SecureHubStore(context.applicationContext) }
@@ -64,6 +71,9 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
     ) { mutableStateOf(NavState()) }
     val dispatch: (NavEvent) -> Unit = { event -> nav = NavReducer.reduce(nav, event).state }
     var generation by remember { mutableStateOf(0) }
+    var appearance by remember { mutableStateOf(prefs.appearance()) }
+    var lockPrefs by remember { mutableStateOf(prefs.lock()) }
+    var tabFilter by remember { mutableStateOf<RequestTab?>(null) }
     var liveRequests by remember { mutableStateOf<List<LicenceRequest>?>(null) }
     var liveEvents by remember { mutableStateOf<List<LicenceEvent>?>(null) }
     var pullSummary by remember { mutableStateOf<PullSummary?>(null) }
@@ -156,8 +166,13 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
     val alertsView = presentAlerts(config, demo, alertsLoading, alertsError, liveEvents, pullSummary, pullError)
     val companiesView = presentCompanies(config, demo, liveRequests)
 
+    val resolved = Appearance.resolve(appearance, isSystemInDarkTheme(), LocalConfiguration.current.fontScale, Build.VERSION.SDK_INT)
+    val requestFacts = liveRequests?.map { RequestFact(it.id, "pending", it.ownerDecision, it.createdAt) }
+    val kpi = requestFacts?.let { Kpi.summarize(it, System.currentTimeMillis()) }
+    val tabById = requestFacts?.associate { it.id to RequestTabs.of(it) }.orEmpty()
+    val shownRequests = if (tabFilter == null || requestsView.demo) requestsView else requestsView.copy(cards = requestsView.cards.filter { tabById[it.id] == tabFilter })
     CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
-        MaterialTheme {
+        OwnerTheme(resolved) {
             val mode = NavLayout.mode(LocalConfiguration.current.screenWidthDp)
             val badges = NavLayout.badges(
                 pendingRequests = requestsView.cards.count { it.pending },
@@ -215,16 +230,22 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
                     val blocked = reasonFor(here, granted)
                     when (if (blocked != null && here.dest.id != "codes") "unavailable" else here.dest.id) {
                         "unavailable" -> UnavailableScreen(here, blocked ?: "unavailable_not_built")
-                        "home" -> HomeScreen(homeLines(config, demo, liveRequests, liveEvents)) { dispatch(NavEvent.Open(it)) }
+                        "home" -> {
+                            kpi?.let { KpiCards(it) }
+                            HomeScreen(homeLines(config, demo, liveRequests, liveEvents)) { dispatch(NavEvent.Open(it)) }
+                        }
                         "more" -> MoreScreen { dispatch(NavEvent.Open(it)) }
                         "customers" -> CompaniesScreen(companiesView, demo) { demo = demo.chooseCompany(it) }
-                        "requests" -> RequestsScreen(
-                            view = requestsView,
+                        "requests" -> {
+                          if (!requestsView.demo) RequestFilterButtons(tabFilter) { tabFilter = it }
+                          RequestsScreen(
+                            view = shownRequests,
                             deciding = deciding,
                             onDemo = { id, next -> demo = demo.markRequest(id, next) },
                             onDecide = { card, action -> pendingDecision = PendingDecision(card.id, action, card.kind) },
                             onRefresh = { generation += 1 }
                         )
+                        }
                         "alerts" -> AlertsScreen(
                             view = alertsView,
                             onRead = { demo = demo.markAlertRead(it) },
@@ -289,6 +310,10 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
                                 }.start()
                             }
                         )
+                        "settings_appearance" -> AppearanceScreen(appearance) { appearance = it; prefs.saveAppearance(it) }
+                        "settings_lock" -> LockSettingsScreen(lockPrefs, deviceIsSecure(context)) { lockPrefs = it; prefs.saveLock(it) }
+                        "settings_backup" -> BackupScreen()
+                        "activity" -> ActivityScreen()
                         else -> UnavailableScreen(here, "unavailable_not_built")
                     }
                 }
