@@ -58,6 +58,16 @@ class AndroidRestoreTest {
         return context.getDatabasePath(name).readBytes()
     }
 
+    /** The app restores on a worker thread (Room refuses a transaction on the main one), so the tests do the same. */
+    private fun restore(plan: RestorePlan, now: Long): AndroidRestore.Applied {
+        var result: AndroidRestore.Applied? = null
+        var error: Throwable? = null
+        val t = Thread { try { result = AndroidRestore.apply(context, plan, name, runtime, now) } catch (e: Throwable) { error = e } }
+        t.start(); t.join()
+        error?.let { throw it }
+        return result!!
+    }
+
     private fun reopen() {
         db = OwnerDatabase.open(context, name, allowMainThreadQueries = true, runtime = runtime)
     }
@@ -67,7 +77,7 @@ class AndroidRestoreTest {
         val backup = snapshot()
         assertEquals(RecordResult.Applied, db.records().renameWorkspace(ws, "After the backup", now + 1))
         db.close()
-        val result = AndroidRestore.apply(context, plan(backup), name, runtime, now + 2) as AndroidRestore.Applied.Done
+        val result = restore(plan(backup), now + 2).let { assertTrue(it.toString(), it is AndroidRestore.Applied.Done); it as AndroidRestore.Applied.Done }
         reopen()
         assertEquals("Before", db.ownerDao().workspace(ws)!!.name)
         assertTrue(db.verifyAudit().ok)
@@ -82,7 +92,7 @@ class AndroidRestoreTest {
         val backup = snapshot()
         db.records().renameWorkspace(ws, "Newer", now + 1)
         db.close()
-        val done = AndroidRestore.apply(context, plan(backup), name, runtime, now + 2) as AndroidRestore.Applied.Done
+        val done = restore(plan(backup), now + 2).let { assertTrue(it.toString(), it is AndroidRestore.Applied.Done); it as AndroidRestore.Applied.Done }
         val copy = File(context.filesDir, done.safetyCopy)
         val raw = android.database.sqlite.SQLiteDatabase.openDatabase(copy.path, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
         try {
@@ -103,7 +113,7 @@ class AndroidRestoreTest {
         assertTrue(store.enqueue(profile, request, OwnerAction.APPROVE, now) is QueueOutcome.Queued)
         val backup = snapshot()
         db.close()
-        val done = AndroidRestore.apply(context, plan(backup), name, runtime, now + 2) as AndroidRestore.Applied.Done
+        val done = restore(plan(backup), now + 2).let { assertTrue(it.toString(), it is AndroidRestore.Applied.Done); it as AndroidRestore.Applied.Done }
         assertEquals(1, done.quarantined)
         reopen()
         val statuses = db.openHelper.writableDatabase.query("SELECT status, lastErrorCode FROM outbox").use { c ->
@@ -120,7 +130,7 @@ class AndroidRestoreTest {
         db.records().createWorkspace(ws, "Keep me", now)
         db.close()
         val garbage = ByteArray(5000) { (it % 251).toByte() }
-        val failed = AndroidRestore.apply(context, plan(garbage), name, runtime, now + 2)
+        val failed = restore(plan(garbage), now + 2)
         assertTrue(failed is AndroidRestore.Applied.Failed)
         reopen()
         assertEquals("Keep me", db.ownerDao().workspace(ws)!!.name)
@@ -131,7 +141,7 @@ class AndroidRestoreTest {
         db.records().createWorkspace(ws, "Keep me", now)
         val backup = snapshot()
         db.close()
-        val failed = AndroidRestore.apply(context, plan(backup, version = OwnerDatabase.VERSION - 1), name, runtime, now + 2)
+        val failed = restore(plan(backup, version = OwnerDatabase.VERSION - 1), now + 2)
         assertTrue(failed is AndroidRestore.Applied.Failed)
         reopen()
         assertEquals("Keep me", db.ownerDao().workspace(ws)!!.name)

@@ -120,19 +120,21 @@ object AndroidRestore {
     /** Null when the candidate is a sound notebook of the stated version; otherwise the reason to show. */
     private fun verifyCandidate(file: File, expectedVersion: Int): Pair<String, String>? {
         val bad = "الملف المستعاد غير سليم. لم يتغير شيء." to "The restored file is not sound. Nothing changed."
-        val db = runCatching { SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY) }.getOrNull() ?: return bad
-        try {
-            val integrity = db.rawQuery("PRAGMA integrity_check", null).use { if (it.moveToFirst()) it.getString(0) else "?" }
-            if (integrity != "ok") return bad
-            val fk = db.rawQuery("PRAGMA foreign_key_check", null).use { it.count }
-            if (fk != 0) return bad
-            val version = db.rawQuery("PRAGMA user_version", null).use { if (it.moveToFirst()) it.getInt(0) else -1 }
-            if (version != expectedVersion || version > OwnerDatabase.VERSION) return bad
-            val tables = db.rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'", null).use { c -> buildSet { while (c.moveToNext()) add(c.getString(0)) } }
-            if (!tables.containsAll(listOf("workspaces", "audit_entries", "audit_chain", "customers"))) return bad
-        } finally {
-            db.close()
+        return try {
+            val db = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY)
+            try {
+                val integrity = db.rawQuery("PRAGMA integrity_check", null).use { if (it.moveToFirst()) it.getString(0) else "?" }
+                val fk = db.rawQuery("PRAGMA foreign_key_check", null).use { it.count }
+                val version = db.rawQuery("PRAGMA user_version", null).use { if (it.moveToFirst()) it.getInt(0) else -1 }
+                val tables = db.rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'", null).use { c -> buildSet { while (c.moveToNext()) add(c.getString(0)) } }
+                val sound = integrity == "ok" && fk == 0 && version == expectedVersion && version <= OwnerDatabase.VERSION &&
+                    tables.containsAll(listOf("workspaces", "audit_entries", "audit_chain", "customers"))
+                if (sound) null else bad
+            } finally {
+                db.close()
+            }
+        } catch (e: Exception) {
+            bad   // garbage that is not a database at all
         }
-        return null
     }
 }
