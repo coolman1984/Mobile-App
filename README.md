@@ -51,7 +51,9 @@ A Cairo clock lives in `domain/Clock.kt`. It follows Africa/Cairo, including the
 
 A private notebook (`OwnerDatabase`) can keep one workspace, hub addresses, customers, branches, products and links. It uses write-ahead logging and foreign keys. Hiding a row can be restored, and the file is not wiped when a migration is missing. The labelled demo is not copied in. Hub tokens are not stored in it. The screens still use the in-memory demo and the live hub; they do not read this notebook yet. Names and phones are accepted only as opaque bytes. Sealing those bytes with the Android Keystore is **NOT IMPLEMENTED**.
 
-ساعة القاهرة تعرف التوقيت الصيفي، ولا تضيف شاشة. دفتر خاص موجود في الكود، والشاشات لا تقرأه بعد. الوضع التجريبي يبقى في الذاكرة. رموز المركز لا تُحفظ في الدفتر. تشفير الأسماء والهواتف بمخزن المفاتيح غير منفّذ بعد. توقيع نسخة النشر ما زال متوقفًا.
+Each successful notebook change also appends a local audit line in Arabic and English. The line is hashed to the one before it, and secrets are stored as `[redacted]`. A short undo can reverse a hide, a restore, or a status change while the revision still matches. Cash reversal is a calculation in memory, not a saved ledger. The chain is not shown on a screen and is not sent to the hub. The audit body is sealed with the Android Keystore when that key can round-trip. The unit tests use an in-memory AES key.
+
+ساعة القاهرة تعرف التوقيت الصيفي، ولا تضيف شاشة. دفتر خاص موجود في الكود، والشاشات لا تقرأه بعد. كل تغيير ناجح في الدفتر يُسجَّل محليًا بالعربية والإنجليزية ويُربط بالسطر السابق، ولا يُرسل إلى المركز. التراجع ممكن ما دام رقم المراجعة مطابقًا. عكس الدفعة حساب في الذاكرة وليس دفترًا محفوظًا. الوضع التجريبي يبقى في الذاكرة. رموز المركز لا تُحفظ في الدفتر. تشفير الأسماء والهواتف بمخزن المفاتيح غير منفّذ بعد. توقيع نسخة النشر ما زال متوقفًا.
 
 ## For agents
 

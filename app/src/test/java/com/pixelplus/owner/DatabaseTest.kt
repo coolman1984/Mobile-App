@@ -82,7 +82,6 @@ class DatabaseTest {
         val root = JSONObject(file.readText())
         val database = root.getJSONObject("database")
         assertEquals(1, root.getInt("formatVersion"))
-        assertEquals(1, database.getInt("version"))
         assertEquals(OwnerDatabase.VERSION, database.getInt("version"))
         val identity = database.getString("identityHash")
         assertTrue(Regex("^[0-9a-f]{32,64}$").matches(identity))
@@ -103,7 +102,7 @@ class DatabaseTest {
                 assertFalse(column.equals("password", ignoreCase = true))
                 assertFalse(column.equals("phone", ignoreCase = true))
             }
-            if (entity.getString("tableName") != "workspaces") {
+            if (entity.getString("tableName") !in setOf("workspaces", "audit_chain")) {
                 val foreignKeys = entity.getJSONArray("foreignKeys")
                 assertTrue(foreignKeys.length() > 0)
                 for (fk in 0 until foreignKeys.length()) {
@@ -391,8 +390,13 @@ class DatabaseTest {
     }
 
     @Test fun sourceDoesNotEnableDestructiveMigrationOrSeedTheDemo() {
-        val dir = locate("src/main/java/com/pixelplus/owner/data/db")
-        val text = dir.walk().filter { it.extension == "kt" }.joinToString("\n") { it.readText() }
+        val text = listOf(
+            "src/main/java/com/pixelplus/owner/data/db",
+            "src/main/java/com/pixelplus/owner/audit",
+            "src/main/java/com/pixelplus/owner/domain",
+        ).flatMap { relative ->
+            locate(relative).walk().filter { it.extension == "kt" }
+        }.joinToString("\n") { it.readText() }
         assertFalse(text.contains("fallbackToDestructive"))
         assertFalse(text.contains("DemoSeed"))
         assertFalse(text.contains("شركة تجريبية"))
@@ -466,7 +470,8 @@ class DatabaseTest {
         private const val ACTOR = "dddddddd-dddd-4ddd-8ddd-dddddddddddd"
         private const val TOKEN = "abcdef0123456789abcdef0123456789"
 
-        private fun schemaFile(): File = locate("schemas/com.pixelplus.owner.data.db.OwnerDatabase/1.json")
+        private fun schemaFile(): File =
+            locate("schemas/com.pixelplus.owner.data.db.OwnerDatabase/${OwnerDatabase.VERSION}.json")
 
         private fun locate(relative: String): File {
             val candidates = listOf(File(relative), File("app/$relative"), File("apps/pixel-plus-owner-mobile/app/$relative"))

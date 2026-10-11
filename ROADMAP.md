@@ -46,7 +46,27 @@ Still open, on purpose:
 
 - No screen reads or writes this notebook. The customer list on the phone is still the in-memory demo. Do not describe it as live.
 - Customer names and phones are length-checked opaque bytes. Sealing those bytes with the Android Keystore is **NOT IMPLEMENTED**.
-- Audit, undo, money, tickets and the sync outbox are later milestones.
+- Money, tickets and the sync outbox are later milestones. The local audit chain and undo guard are M03.
+
+## M03 — local audit and undo (this branch, source only)
+
+Done in source. Not shown on a screen. Not proven on a handset.
+
+- Room version 2 adds an append-only audit chain and undo rows. A version 1 notebook is migrated in place. The file is not wiped.
+- Each successful notebook write adds one Arabic explanation and one English explanation in the same transaction. A duplicate that the notebook refuses is recorded when the workspace already exists. Names, phones, tokens, notes and amounts are kept out of the chain.
+- The hash is SHA-256 of the previous hash plus fixed canonical bytes. A shared golden file locks those bytes. Tests cover a changed byte, a missing middle row, a reordered list, a repeated id, and eight writers at once.
+- Undo is offered for about 10 seconds. After that, the activity path can still undo a local change when nothing else has touched that record. A revision mismatch, a conflicting restore, or a later child change refuses the undo and says why. Work that has already been sent uses the fixed sentence: لا يمكن التراجع بعد الإرسال / Cannot undo after sending.
+- Audit rows have no update or delete method. Database triggers refuse those statements.
+- A cash reversal is a calculation: a new negative posting that points at the original, which stays unchanged. A hidden customer does not change the total. There is no payment table.
+
+Still open, on purpose:
+
+- No activity screen and no save-to-file flow on the phone. A JSON and bilingual Markdown formatter exists and is covered by a unit test. The screen is a later milestone.
+- The chain is not sent to the hub. Worker audit endpoints are a later milestone. Worker authentication was not changed.
+- Sealing the audit body with the Android Keystore is in the app and is used only after a round-trip check. These unit tests seal with an in-memory AES key. A handset proof was not run.
+- Migration was checked by opening a synthetic version 1 file in the unit test. The emulator migration helper was not run.
+- Customer names and phones are still opaque bytes. Sealing those bytes with the Android Keystore is **NOT IMPLEMENTED**.
+- Do not describe the in-memory reversal as stored money.
 
 ## P2 — authenticated cloud request/alert read (remaining)
 - Read existing Control Center API and relay, map data contracts and authorization gaps.

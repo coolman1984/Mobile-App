@@ -7,6 +7,10 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import com.pixelplus.owner.audit.AuditRuntime
+import com.pixelplus.owner.audit.ChainReport
+import com.pixelplus.owner.audit.PlainAuditSealer
+import com.pixelplus.owner.audit.RandomIdSource
 
 /**
  * Private notebook. The demo in memory is not copied here.
@@ -21,18 +25,28 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
         BranchEntity::class,
         ProductEntity::class,
         CustomerLinkEntity::class,
+        AuditChainEntity::class,
+        AuditEntryEntity::class,
+        UndoRecordEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class OwnerDatabase : RoomDatabase() {
     abstract fun ownerDao(): OwnerDao
 
+    abstract fun auditDao(): AuditDao
+
+    @Volatile
+    internal var auditRuntime: AuditRuntime = AuditRuntime(RandomIdSource, PlainAuditSealer)
+
     internal fun records(): OwnerRecords = OwnerRecords(this)
+
+    internal fun verifyAudit(): ChainReport = AuditWriter(this).verify()
 
     companion object {
         const val DATABASE_NAME = "pixel-plus-owner.db"
-        const val VERSION = 1
+        const val VERSION = 2
 
         val TABLE_NAMES: List<String> = listOf(
             "workspaces",
@@ -41,12 +55,16 @@ abstract class OwnerDatabase : RoomDatabase() {
             "branches",
             "products",
             "customer_links",
+            "audit_chain",
+            "audit_entries",
+            "undo_records",
         )
 
         fun open(
             context: Context,
             name: String = DATABASE_NAME,
             allowMainThreadQueries: Boolean = false,
+            runtime: AuditRuntime? = null,
         ): OwnerDatabase {
             val builder = Room.databaseBuilder(context, OwnerDatabase::class.java, name)
                 .setJournalMode(JournalMode.WRITE_AHEAD_LOGGING)
@@ -54,7 +72,9 @@ abstract class OwnerDatabase : RoomDatabase() {
                 .addMigrations(*OwnerMigrations.ALL)
                 .addCallback(ConstraintCallback)
             if (allowMainThreadQueries) builder.allowMainThreadQueries()
-            return builder.build()
+            val database = builder.build()
+            database.auditRuntime = runtime ?: AuditRuntime.resolve(context)
+            return database
         }
     }
 }

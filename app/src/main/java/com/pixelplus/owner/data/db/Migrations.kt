@@ -4,21 +4,42 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 /**
- * Version 1 is created from the entities. There is no migration yet.
+ * Version 1 is the notebook. Version 2 adds the audit chain and undo rows.
  *
  * Partial unique indexes and guards that Room cannot express are applied when
- * the file is created and again whenever it is opened. A later version must
- * call [applyConstraints] from its Migration. A missing migration must fail
- * and leave the file in place. Do not wipe or recreate this database.
+ * the file is created and again whenever it is opened. Room compares indexes
+ * after a migration, so the partial indexes are dropped for that check and
+ * put back when the file opens. A missing migration must fail and leave the
+ * file in place. Do not wipe or recreate this database.
  */
 internal object OwnerMigrations {
-    val ALL: Array<Migration> = emptyArray()
+    val ALL: Array<Migration>
+        get() = arrayOf(MIGRATION_1_2)
+
+    /**
+     * Indexes Room did not declare. They are recreated by [applyConstraints].
+     */
+    val PARTIAL_INDEXES: List<String> = listOf(
+        "index_hub_profiles_active_url",
+        "index_customers_active_token",
+        "index_products_active_code",
+        "index_customer_links_active_remote",
+        "index_branches_one_default",
+    )
+
+    private val MIGRATION_1_2 = object : Migration(1, 2) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            PARTIAL_INDEXES.forEach { name -> db.execSQL("DROP INDEX IF EXISTS `$name`") }
+            AUDIT_TABLES.forEach { db.execSQL(it) }
+        }
+    }
 
     fun applyConstraints(db: SupportSQLiteDatabase) {
         STATEMENTS.forEach { db.execSQL(it) }
     }
 
-    val STATEMENTS: List<String> = buildList {
+    val STATEMENTS: List<String> by lazy {
+        buildList {
         listOf(
             "workspaces",
             "hub_profiles",
@@ -172,7 +193,132 @@ internal object OwnerMigrations {
             WHERE isDefault = 1 AND deletedAtUtcMs IS NULL
             """.trimIndent(),
         )
+        addAll(AUDIT_GUARDS)
+        }
     }
+
+    private val GENESIS = "0000000000000000000000000000000000000000000000000000000000000000"
+
+    private val AUDIT_TABLES: List<String> = listOf(
+        """
+        CREATE TABLE IF NOT EXISTS `audit_chain` (`singleton` INTEGER NOT NULL, `chainId` TEXT NOT NULL, `deviceInstanceId` TEXT NOT NULL, `actorType` TEXT NOT NULL, `createdAtUtcMs` INTEGER NOT NULL, PRIMARY KEY(`singleton`))
+        """.trimIndent(),
+        """
+        CREATE TABLE IF NOT EXISTS `audit_entries` (`eventId` TEXT NOT NULL, `schemaVersion` INTEGER NOT NULL, `chainId` TEXT NOT NULL, `sequence` INTEGER NOT NULL, `deviceInstanceId` TEXT NOT NULL, `actorType` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `hubProfileId` TEXT, `occurredAtUtcMs` INTEGER NOT NULL, `cairoLocalIso` TEXT NOT NULL, `cairoOffsetSeconds` INTEGER NOT NULL, `zoneId` TEXT NOT NULL, `screen` TEXT NOT NULL, `action` TEXT NOT NULL, `entityType` TEXT NOT NULL, `entityId` TEXT, `beforeSafe` TEXT NOT NULL, `afterSafe` TEXT NOT NULL, `result` TEXT NOT NULL, `reasonCode` TEXT, `explanationAr` TEXT NOT NULL, `explanationEn` TEXT NOT NULL, `explanationTemplateVersion` INTEGER NOT NULL, `correlationId` TEXT NOT NULL, `originalEventId` TEXT, `operationId` TEXT, `previousHash` TEXT NOT NULL, `entryHash` TEXT NOT NULL, `canonicalVersion` INTEGER NOT NULL, `canonicalCiphertext` BLOB NOT NULL, `keyAliasVersion` INTEGER NOT NULL, PRIMARY KEY(`eventId`), FOREIGN KEY(`workspaceId`) REFERENCES `workspaces`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`hubProfileId`) REFERENCES `hub_profiles`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )
+        """.trimIndent(),
+        "CREATE INDEX IF NOT EXISTS `index_audit_entries_time` ON `audit_entries` (`occurredAtUtcMs`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_entries_screen` ON `audit_entries` (`screen`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_entries_action` ON `audit_entries` (`action`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_entries_entity` ON `audit_entries` (`entityType`, `entityId`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_entries_result` ON `audit_entries` (`result`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_entries_workspace` ON `audit_entries` (`workspaceId`)",
+        "CREATE INDEX IF NOT EXISTS `index_audit_entries_hub` ON `audit_entries` (`hubProfileId`)",
+        "CREATE UNIQUE INDEX IF NOT EXISTS `index_audit_entries_chain_sequence` ON `audit_entries` (`chainId`, `sequence`)",
+        """
+        CREATE TABLE IF NOT EXISTS `undo_records` (`operationId` TEXT NOT NULL, `eventId` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `entityType` TEXT NOT NULL, `entityId` TEXT NOT NULL, `inverseCiphertext` BLOB NOT NULL, `expectedRevision` INTEGER NOT NULL, `expiresAtUtcMs` INTEGER NOT NULL, `usedAtUtcMs` INTEGER, `invalidatedAtUtcMs` INTEGER, `undoClass` TEXT NOT NULL, `createdAtUtcMs` INTEGER NOT NULL, `keyAliasVersion` INTEGER NOT NULL, PRIMARY KEY(`operationId`), FOREIGN KEY(`eventId`) REFERENCES `audit_entries`(`eventId`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`workspaceId`) REFERENCES `workspaces`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )
+        """.trimIndent(),
+        "CREATE INDEX IF NOT EXISTS `index_undo_records_expiry` ON `undo_records` (`expiresAtUtcMs`)",
+        "CREATE INDEX IF NOT EXISTS `index_undo_records_event` ON `undo_records` (`eventId`)",
+        "CREATE INDEX IF NOT EXISTS `index_undo_records_workspace` ON `undo_records` (`workspaceId`)",
+        "CREATE INDEX IF NOT EXISTS `index_undo_records_entity` ON `undo_records` (`entityType`, `entityId`)",
+    )
+
+    private val AUDIT_GUARDS: List<String> = listOf(
+        """
+        CREATE TRIGGER IF NOT EXISTS audit_chain_no_update
+        BEFORE UPDATE ON audit_chain
+        BEGIN
+        SELECT RAISE(ABORT, 'audit_immutable');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS audit_chain_no_delete
+        BEFORE DELETE ON audit_chain
+        BEGIN
+        SELECT RAISE(ABORT, 'audit_immutable');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS audit_chain_shape
+        BEFORE INSERT ON audit_chain
+        WHEN NEW.singleton != 1
+        OR NEW.actorType != 'owner'
+        OR length(NEW.chainId) != 36
+        OR length(NEW.deviceInstanceId) != 36
+        BEGIN
+        SELECT RAISE(ABORT, 'bad_chain');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS audit_entries_no_update
+        BEFORE UPDATE ON audit_entries
+        BEGIN
+        SELECT RAISE(ABORT, 'audit_immutable');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS audit_entries_no_delete
+        BEFORE DELETE ON audit_entries
+        BEGIN
+        SELECT RAISE(ABORT, 'audit_immutable');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS audit_entries_link
+        BEFORE INSERT ON audit_entries
+        WHEN NEW.sequence < 1
+        OR length(NEW.previousHash) != 64
+        OR length(NEW.entryHash) != 64
+        OR NEW.previousHash GLOB '*[^0-9a-f]*'
+        OR NEW.entryHash GLOB '*[^0-9a-f]*'
+        OR (NEW.sequence = 1 AND NEW.previousHash != '$GENESIS')
+        OR (
+        NEW.sequence > 1
+        AND NOT EXISTS (
+        SELECT 1 FROM audit_entries
+        WHERE chainId = NEW.chainId
+        AND sequence = NEW.sequence - 1
+        AND entryHash = NEW.previousHash
+        )
+        )
+        BEGIN
+        SELECT RAISE(ABORT, 'audit_link');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS undo_records_no_delete
+        BEFORE DELETE ON undo_records
+        BEGIN
+        SELECT RAISE(ABORT, 'audit_immutable');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS undo_records_frozen
+        BEFORE UPDATE ON undo_records
+        WHEN NEW.operationId != OLD.operationId
+        OR NEW.eventId != OLD.eventId
+        OR NEW.workspaceId != OLD.workspaceId
+        OR NEW.entityType != OLD.entityType
+        OR NEW.entityId != OLD.entityId
+        OR NEW.inverseCiphertext != OLD.inverseCiphertext
+        OR NEW.expectedRevision != OLD.expectedRevision
+        OR NEW.expiresAtUtcMs != OLD.expiresAtUtcMs
+        OR NEW.undoClass != OLD.undoClass
+        OR NEW.createdAtUtcMs != OLD.createdAtUtcMs
+        OR NEW.keyAliasVersion != OLD.keyAliasVersion
+        OR (OLD.usedAtUtcMs IS NOT NULL AND NEW.usedAtUtcMs IS NOT OLD.usedAtUtcMs)
+        OR (OLD.invalidatedAtUtcMs IS NOT NULL AND NEW.invalidatedAtUtcMs IS NOT OLD.invalidatedAtUtcMs)
+        OR (
+        NEW.usedAtUtcMs IS NOT NULL
+        AND NEW.invalidatedAtUtcMs IS NOT NULL
+        AND OLD.usedAtUtcMs IS NULL
+        AND OLD.invalidatedAtUtcMs IS NULL
+        )
+        BEGIN
+        SELECT RAISE(ABORT, 'undo_frozen');
+        END
+        """.trimIndent(),
+    )
 
     private fun insertClock(table: String): String {
         val deleted = if (table == "workspaces") "" else "\nOR NEW.deletedAtUtcMs IS NOT NULL"
