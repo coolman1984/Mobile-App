@@ -39,7 +39,8 @@ data class LicenceRequest(
     val shop: String,
     val version: String,
     val createdAt: Long,
-    val ownerDecision: String?
+    val ownerDecision: String?,
+    val ownerDecidedAt: Long? = null,
 )
 
 data class LicenceEvent(
@@ -53,6 +54,16 @@ data class LicenceEvent(
 data class PullSummary(val shown: Int, val known: Int, val unregistered: Int, val bytes: Long)
 
 data class DecideAck(val status: String, val ownerDecision: String?, val repeat: Boolean)
+
+data class RequestState(val status: String, val reason: String?, val ownerDecision: String?)
+
+data class MailboxBatch(
+    val id: String,
+    val installId: String,
+    val known: Int,
+    val receivedAt: Long,
+    val size: Long,
+)
 
 sealed class Parse<out T> {
     data class Ok<T>(val value: T) : Parse<T>()
@@ -264,7 +275,8 @@ fun parsePending(body: String): Parse<List<LicenceRequest>> {
                 shop = row.text("shop").orEmpty().take(80),
                 version = row.text("version").orEmpty().take(20),
                 createdAt = created,
-                ownerDecision = row.text("owner_decision")?.take(20)
+                ownerDecision = row.text("owner_decision")?.take(20),
+                ownerDecidedAt = row.long("owner_decided_at")
             )
         )
     }
@@ -378,9 +390,92 @@ fun noticeNew(
 fun notificationText(fresh: FreshNotice): String? {
     if (fresh.newRequestIds.isEmpty() && fresh.newEventIds.isEmpty()) return null
     val parts = ArrayList<String>(2)
-    if (fresh.newRequestIds.isNotEmpty()) parts.add("طلبات جديدة: ${fresh.newRequestIds.size}")
-    if (fresh.newEventIds.isNotEmpty()) parts.add("أحداث جديدة: ${fresh.newEventIds.size}")
+    if (fresh.newRequestIds.isNotEmpty()) {
+        val count = fresh.newRequestIds.size
+        parts.add("طلبات جديدة: $count / New requests: $count")
+    }
+    if (fresh.newEventIds.isNotEmpty()) {
+        val count = fresh.newEventIds.size
+        parts.add("أحداث جديدة: $count / New events: $count")
+    }
     return parts.joinToString(" — ")
+}
+
+/** The phone may call only these hub paths. /ack and the install registry are refused. */
+fun rejectedHubPath(method: String, url: String): String? {
+    val uri = try {
+        URI(url)
+    } catch (e: Exception) {
+        return "forbidden"
+    }
+    val path = uri.rawPath ?: return "forbidden"
+    if (path.contains("/ack")) return "ack"
+    val get = method.equals("GET", ignoreCase = true)
+    val post = method.equals("POST", ignoreCase = true)
+    val allowed = when {
+        get && (path == "/licence/pending" || path == "/licence/events" || path == "/pull") -> true
+        post && (path == "/licence/decide" || path == "/licence/states") -> true
+        post && path == "/installs" -> return "installs"
+        else -> false
+    }
+    return if (allowed) null else "forbidden"
+}
+
+fun pendingAfter(raw: String): String? {
+    val parts = raw.split(':')
+    if (parts.size != 2) return null
+    val at = parts[0].toLongOrNull() ?: return null
+    if (at < 0 || parts[0].length > 16 || (parts[0].length > 1 && parts[0].startsWith('0'))) return null
+    val id = canonicalId(parts[1]) ?: return null
+    return "$at:$id"
+}
+
+fun statesBody(ids: List<String>): String? {
+    val clean = ids.mapNotNull { canonicalId(it) }.distinct().take(50)
+    if (clean.isEmpty()) return null
+    return """{"ids":[${clean.joinToString(",") { jsonString(it) }}]}"""
+}
+
+/** Counts and safe ids only. The batch body and token hash are never copied. */
+fun parseMailbox(body: String): Parse<List<MailboxBatch>> {
+    val rows = when (val parsed = jsonRows(body, "batches")) {
+        is Parse.Bad -> return parsed
+        is Parse.Ok -> parsed.value
+    }
+    val out = ArrayList<MailboxBatch>(rows.size)
+    for (row in rows) {
+        val id = row.text("id")?.takeIf { it.isNotBlank() && it.length <= 80 && it.none { ch -> ch.isWhitespace() } }
+            ?: return Parse.Bad("shape")
+        val known = row.long("known") ?: return Parse.Bad("shape")
+        if (known != 0L && known != 1L) return Parse.Bad("shape")
+        out.add(
+            MailboxBatch(
+                id = id,
+                installId = row.text("install_id").orEmpty().take(80),
+                known = known.toInt(),
+                receivedAt = row.long("received_at") ?: 0L,
+                size = (row.long("size") ?: 0L).coerceAtLeast(0L),
+            ),
+        )
+    }
+    return Parse.Ok(out)
+}
+
+fun parseStates(body: String): Parse<Map<String, RequestState>> {
+    val root = jsonObject(body) ?: return Parse.Bad("json")
+    val states = root["states"] as? JsonObject ?: return Parse.Bad("shape")
+    val out = linkedMapOf<String, RequestState>()
+    for ((key, value) in states) {
+        val id = canonicalId(key) ?: return Parse.Bad("shape")
+        val row = value as? JsonObject ?: return Parse.Bad("shape")
+        val status = row.text("status")?.takeIf { it.length in 1..20 } ?: return Parse.Bad("shape")
+        out[id] = RequestState(
+            status = status,
+            reason = row.text("reason")?.take(40),
+            ownerDecision = row.text("owner_decision")?.take(20),
+        )
+    }
+    return Parse.Ok(out)
 }
 
 fun planSave(
@@ -413,7 +508,8 @@ fun presentRequests(
     demo: DemoState,
     loading: Boolean,
     errorCode: String?,
-    live: List<LicenceRequest>?
+    live: List<LicenceRequest>?,
+    completeSnapshot: Boolean = false,
 ): RequestsPresentation {
     if (!config.isLive) {
         return RequestsPresentation(
@@ -430,7 +526,7 @@ fun presentRequests(
         loading = loading && live == null,
         errorCode = errorCode,
         cards = cards,
-        truncated = (live?.size ?: 0) >= 50
+        truncated = !completeSnapshot && (live?.size ?: 0) >= 50
     )
 }
 

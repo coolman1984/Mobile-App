@@ -73,6 +73,9 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
     var decisionMessage by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
     var settingsNote by remember { mutableStateOf<String?>(null) }
+    var queueLine by remember { mutableStateOf("") }
+    var cachedAt by remember { mutableStateOf<Long?>(null) }
+    var savingSettings by remember { mutableStateOf(false) }
 
     DisposableEffect(config.isLive) {
         if (config.isLive) HubScheduler.ensure(context.applicationContext)
@@ -89,12 +92,16 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
             pullError = null
             reqLoading = false
             alertsLoading = false
+            queueLine = ""
+            cachedAt = null
             onDispose { }
         } else {
             val alive = AtomicBoolean(true)
             val snapshot = config
             reqLoading = true
             alertsLoading = true
+            queueLine = ""
+            cachedAt = null
             reqError = null
             alertsError = null
             pullError = null
@@ -102,11 +109,16 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
             liveEvents = null
             pullSummary = null
             Thread {
-                val result = client.pending(snapshot)
+                val fetched = runCatching { com.pixelplus.owner.sync.OwnerSync.requests(context.applicationContext, snapshot, client) }
+                    .getOrElse { com.pixelplus.owner.sync.RequestSnapshot(HubResult.Rejected("cache_unavailable")) }
+                val result = fetched.result
+                val queue = runCatching { com.pixelplus.owner.sync.OwnerSync.queueLine(context.applicationContext, snapshot) }.getOrDefault("")
                 if (!alive.get()) return@Thread
                 main.post {
                     if (activity?.isDestroyed == true || !alive.get()) return@post
                     reqLoading = false
+                    queueLine = queue
+                    cachedAt = fetched.cachedAt
                     if (result is HubResult.Ok) liveRequests = result.value else reqError = failureCode(result)
                 }
             }.start()
@@ -136,7 +148,7 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
         }
     }
 
-    val requestsView = presentRequests(config, demo, reqLoading, reqError, liveRequests)
+    val requestsView = presentRequests(config, demo, reqLoading, reqError, liveRequests, completeSnapshot = liveRequests != null && cachedAt == null)
     val alertsView = presentAlerts(config, demo, alertsLoading, alertsError, liveEvents, pullSummary, pullError)
     val companiesView = presentCompanies(config, demo, liveRequests)
 
@@ -168,7 +180,7 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
                     if (config.isLive) {
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                Text("متصل بالمركز", fontWeight = FontWeight.Bold)
+                                Text("المركز محفوظ / Hub configured", fontWeight = FontWeight.Bold)
                                 Text("الخادم: ${hostOnly(config.baseUrl)}. هذا الهاتف لا يصدر كودًا ولا يحتفظ بمفتاح توقيع.")
                             }
                         }
@@ -186,9 +198,9 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
-                    decisionMessage?.let { message ->
-                        Text(message, color = MaterialTheme.colorScheme.primary)
-                    }
+                    if (config.isLive && cachedAt != null) SyncStatusText(com.pixelplus.owner.sync.SyncCopy.cachedSnapshot(cachedAt!!).display)
+                    if (config.isLive && queueLine.isNotBlank()) SyncStatusText(queueLine)
+                    decisionMessage?.let { message -> SyncStatusText(message) }
                     when (tab) {
                         Tab.HOME -> HomeScreen(homeLines(config, demo, liveRequests, liveEvents)) { tab = it }
                         Tab.COMPANIES -> CompaniesScreen(companiesView, demo) { demo = demo.chooseCompany(it) }
@@ -209,26 +221,41 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
                             saved = config,
                             encryptionAvailable = store.encryptionAvailable,
                             testing = testing,
+                            saving = savingSettings,
                             testNote = settingsNote,
                             onRequestNotifications = onRequestNotifications,
                             onSave = { next ->
-                                val savedOk = store.save(next)
-                                if (savedOk) {
-                                    config = store.read()
-                                    HubScheduler.ensure(context.applicationContext)
-                                    decisionMessage = "حُفظت الإعدادات على هذا الجهاز فقط."
-                                } else {
-                                    decisionMessage = "تعذر حفظ الرمز في خزنة الجهاز. لم يُحفظ شيء."
-                                }
-                                savedOk
+                                savingSettings = true
+                                Thread {
+                                    val savedOk = store.save(next)
+                                    main.post {
+                                        if (activity?.isDestroyed == true) return@post
+                                        savingSettings = false
+                                        if (savedOk) {
+                                            config = store.read()
+                                            generation += 1
+                                            HubScheduler.ensure(context.applicationContext)
+                                        }
+                                        decisionMessage = if (savedOk) "حُفظت الإعدادات على هذا الجهاز فقط.\nSettings saved on this device only." else "تعذر حفظ الإعدادات بأمان. أعد المحاولة.\nCould not save settings safely. Try again."
+                                    }
+                                }.start()
                             },
                             onClear = {
-                                store.clear()
-                                config = HubConfig("", "", "")
-                                demo = DemoSeed.state()
-                                HubScheduler.cancel(context.applicationContext)
-                                settingsNote = null
-                                decisionMessage = "مُسحت الإعدادات. التطبيق عاد إلى البيانات التجريبية."
+                                savingSettings = true
+                                Thread {
+                                    val cleared = store.clear()
+                                    main.post {
+                                        if (activity?.isDestroyed == true) return@post
+                                        savingSettings = false
+                                        if (cleared) {
+                                            config = HubConfig("", "", "")
+                                            demo = DemoSeed.state()
+                                            HubScheduler.cancel(context.applicationContext)
+                                            settingsNote = null
+                                            decisionMessage = "مُسحت الإعدادات. التطبيق عاد إلى البيانات التجريبية.\nSettings cleared. The app returned to demo data."
+                                        } else decisionMessage = "تعذر مسح الإعدادات بأمان.\nCould not clear settings safely."
+                                    }
+                                }.start()
                             },
                             onTest = { draft ->
                                 testing = true
@@ -263,21 +290,16 @@ fun OwnerApp(onRequestNotifications: () -> Unit = {}) {
                                 val snapshot = config
                                 deciding = true
                                 pendingDecision = null
+                                val request = liveRequests?.firstOrNull { it.id == choice.id }
                                 Thread {
-                                    val result = client.decide(snapshot, choice.id, choice.action)
+                                    val message = if (request == null) com.pixelplus.owner.sync.SyncCopy.settingsChanged().display else runCatching {
+                                        com.pixelplus.owner.sync.OwnerSync.enqueue(context.applicationContext, snapshot, request, choice.action)
+                                    }.getOrElse { "تعذر حفظ القرار بأمان. أعد المحاولة.\nCould not save the decision safely. Try again." }
                                     main.post {
                                         if (activity?.isDestroyed == true) return@post
                                         deciding = false
-                                        decisionMessage = if (result is HubResult.Ok) {
-                                            generation += 1
-                                            if (choice.action == OwnerAction.APPROVE) {
-                                                "سُجّلت الموافقة. إصدار الكود يتم من برنامج التراخيص على الكمبيوتر."
-                                            } else {
-                                                "رُفض الطلب."
-                                            }
-                                        } else {
-                                            arabicFailure(failureCode(result))
-                                        }
+                                        decisionMessage = if (config == snapshot) message else com.pixelplus.owner.sync.SyncCopy.settingsChanged().display
+                                        generation += 1
                                     }
                                 }.start()
                             }
@@ -460,17 +482,24 @@ private fun SettingsScreen(
     saved: HubConfig,
     encryptionAvailable: Boolean,
     testing: Boolean,
+    saving: Boolean,
     testNote: String?,
     onRequestNotifications: () -> Unit,
-    onSave: (HubConfig) -> Boolean,
+    onSave: (HubConfig) -> Unit,
     onClear: () -> Unit,
     onTest: (HubConfig) -> Unit
 ) {
-    var url by remember { mutableStateOf(saved.baseUrl) }
+    var url by remember(saved.baseUrl) { mutableStateOf(saved.baseUrl) }
     var owner by remember { mutableStateOf("") }
     var pull by remember { mutableStateOf("") }
     var clearPull by remember { mutableStateOf(false) }
     var formNote by remember { mutableStateOf<String?>(null) }
+    DisposableEffect(saved) {
+        owner = ""
+        pull = ""
+        clearPull = false
+        onDispose { }
+    }
     SectionTitle("الإعدادات")
     if (!encryptionAvailable) {
         Text("تعذر تجهيز الخزنة على هذا الجهاز. لن يُحفظ أي رمز.")
@@ -517,7 +546,7 @@ private fun SettingsScreen(
     formNote?.let { Text(it) }
     testNote?.let { Text(it) }
     Button(
-        enabled = !testing,
+        enabled = !testing && !saving,
         onClick = {
             when (val plan = planSave(saved, url, owner, pull, clearPull)) {
                 is SavePlan.Reject -> formNote = arabicFailure(plan.reason)
@@ -530,17 +559,13 @@ private fun SettingsScreen(
         modifier = Modifier.fillMaxWidth()
     ) { Text(if (testing) "جارٍ الاختبار" else "اختبار الاتصال") }
     Button(
+        enabled = !saving && !testing,
         onClick = {
             when (val plan = planSave(saved, url, owner, pull, clearPull)) {
                 is SavePlan.Reject -> formNote = arabicFailure(plan.reason)
                 is SavePlan.Accept -> {
-                    if (onSave(plan.config)) {
-                        url = plan.config.baseUrl
-                        owner = ""
-                        pull = ""
-                        clearPull = false
-                        formNote = null
-                    }
+                    onSave(plan.config)
+                    formNote = null
                 }
             }
         },
@@ -567,4 +592,18 @@ private fun SettingsScreen(
 private fun SectionTitle(title: String) {
     Text(title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
     HorizontalDivider()
+}
+
+@Composable
+private fun SyncStatusText(message: String) {
+    Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        message.lines().forEach { line ->
+            val arabic = line.any { it in '\u0600'..'\u06ff' }
+            CompositionLocalProvider(LocalLayoutDirection provides if (arabic) LayoutDirection.Rtl else LayoutDirection.Ltr) {
+                Text(line, modifier = Modifier.fillMaxWidth(), style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.Start)
+            }
+        }
+    }
 }

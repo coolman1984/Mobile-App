@@ -266,7 +266,7 @@ class AuditDatabaseTest {
         raw.close()
         db = openNamed(name)
         assertEquals("Office", db.ownerDao().workspace(WORKSPACE)!!.name)
-        assertEquals("2", pragma("PRAGMA user_version"))
+        assertEquals(OwnerDatabase.VERSION.toString(), pragma("PRAGMA user_version"))
         assertTrue(tableNames().containsAll(listOf("audit_chain", "audit_entries", "undo_records")))
         OwnerMigrations.PARTIAL_INDEXES.forEach { index ->
             assertTrue(masterSql().contains(index))

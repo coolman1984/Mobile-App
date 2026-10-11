@@ -7,7 +7,17 @@ This document is the **threat and compatibility contract**, not an assertion the
 - `apps/control-center` has an API, requests, customer/install registry and alert model; its README explicitly marks hosted production deployment as NOT DONE.
 - Telegram owner buttons can record trial decisions, but a trusted PC is needed to sign existing codes. Do not put the current desktop private key in this new mobile app, an APK, repo, CI, hosted relay or push notification.
 - The Android app still **cannot** issue real codes and holds no signing key. With no hub saved it shows synthetic data in memory. With a hub saved it calls the Worker over HTTPS using the owner token (and, optionally, the pull token) from Keystore-backed preferences. It can record an approval or a refusal, read licence events, and, if a pull token is set, read a telemetry summary. It does not call `/ack`, does not use Firebase, and does not allow cleartext. Local notifications are posted by the app itself.
-- Notebook writes append a local bilingual audit chain (Room version 2). That chain is not uploaded. A missing hub receipt is not a remote audit.
+- Notebook writes append a local bilingual audit chain (Room version 3). That chain is not uploaded. A missing hub receipt is not a remote audit.
+
+## M04 decision queue boundary
+
+Phone confirmation writes an encrypted intent and local bilingual audit atomically, not remote approval. Only existing admin-token pending/states/decide/events calls and optional pull-token read remain allowed. Fresh states plus the effective-expiry pending projection are required before dispatch and confirmation; `/states` alone is insufficient. Lost responses and 5xx remain uncertain until reconciled. Stored payloads are immutable and checked against request ID/action; retries keep the same local operation and exact body. The Worker still has no conditional operation receipt; server transitions remain authoritative during races.
+
+A separate Android Keystore AES-GCM key protects outbox bodies. Failure to open/round-trip it blocks queue writes instead of storing plaintext. Payloads contain only the opaque request ID and allowlisted approve/refuse action/reason, never tokens or codes. Safe metadata caches exclude shop/reference text, raw events, compressed mailbox bodies and token hashes. Tokens remain in existing encrypted preferences. Outbox state transitions and local audit commit together.
+
+A process lock serializes queue confirmation, settings rotation/clearing and background dispatch. Old-origin intents are invalidated, credential changes pause affected work, and current credentials must pass connection/state checks before resumption. WorkManager stores only nonsecret profile tags; tokens are loaded from encrypted settings during execution. Persistent notice keys are scoped per profile and suppress duplicate attempts; denied notification permission does not grant delivery evidence.
+
+Automated tests/builds are recorded in ROADMAP.md. No live-server deployment, shared-token tenant isolation, trusted server clock, handset Keystore/kill/recovery proof, portable backup, real issuance or signing is claimed by M04.
 
 ## Trust model
 - Generate a **new mobile signing identity** after secure hardware-based enrollment and owner reauthentication. Android Keystore is used for protecting/wrapping material where supported; do not assume Ed25519 hardware signing is universally offered. Provide honest secure fallback and test compromises.

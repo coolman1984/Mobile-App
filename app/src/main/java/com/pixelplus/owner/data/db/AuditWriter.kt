@@ -79,7 +79,7 @@ internal class AuditWriter(private val database: OwnerDatabase) {
         val operationId = if (recordUndo) runtime.ids.next() else null
         if (operationId != null) require(RecordRules.validId(operationId)) { "audit operation" }
         val stamp = CairoClock.stamp(spec.nowUtcMs)
-        val text = AuditText.explain(spec.action, spec.entityType, spec.result)
+        val text = AuditText.explain(spec.action, spec.entityType, spec.result, spec.reasonCode)
         val before = AuditRedaction.redact(spec.before)
         val after = AuditRedaction.redact(spec.after)
         val draft = AuditDraft(

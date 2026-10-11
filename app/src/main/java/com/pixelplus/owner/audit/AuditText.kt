@@ -19,6 +19,7 @@ object AuditVocab {
     const val SCREEN_HUB = "hub"
     const val SCREEN_MONEY = "money"
     const val SCREEN_ACTIVITY = "activity"
+    const val SCREEN_REQUESTS = "requests"
 
     const val ACTION_CREATE = "create"
     const val ACTION_UPDATE = "update"
@@ -53,6 +54,7 @@ object AuditVocab {
         SCREEN_HUB,
         SCREEN_MONEY,
         SCREEN_ACTIVITY,
+        SCREEN_REQUESTS,
     )
     val ACTIONS = setOf(
         ACTION_CREATE,
@@ -86,7 +88,55 @@ object AuditVocab {
 object AuditText {
     const val TEMPLATE_VERSION: Int = 1
 
-    fun explain(action: String, entityType: String, result: String): AuditExplanation {
+    fun explain(action: String, entityType: String, result: String, reasonCode: String? = null): AuditExplanation {
+        if (entityType == AuditVocab.ENTITY_DECISION && result == AuditVocab.RESULT_INTENT && reasonCode == "approve") {
+            return AuditExplanation(
+                "تم تسجيل الموافقة في قائمة الانتظار.",
+                "Approval was added to the queue.",
+            )
+        }
+        if (entityType == AuditVocab.ENTITY_DECISION && result == AuditVocab.RESULT_INTENT && reasonCode == "refuse") {
+            return AuditExplanation(
+                "تم تسجيل الرفض في قائمة الانتظار.",
+                "Refusal was added to the queue.",
+            )
+        }
+        if (entityType == AuditVocab.ENTITY_DECISION && result == AuditVocab.RESULT_CONFLICT && reasonCode == "duplicate") {
+            return AuditExplanation(
+                "القرار موجود في قائمة الانتظار. لم يُضف مرة ثانية.",
+                "This decision is already in the queue. It was not added again.",
+            )
+        }
+        if (entityType == AuditVocab.ENTITY_DECISION && reasonCode == "remote_confirmed") {
+            return AuditExplanation("أكّد المركز حالة القرار. الموافقة لا تعني إصدار كود.", "The hub confirmed the decision state. Approval does not mean a code was issued.")
+        }
+        if (entityType == AuditVocab.ENTITY_DECISION && reasonCode == "queue_state") {
+            return AuditExplanation("تم تحديث حالة القرار في قائمة الانتظار على الهاتف.", "The decision state in this phone's queue was updated.")
+        }
+        if (entityType == AuditVocab.ENTITY_DECISION && reasonCode == "sync_run") {
+            return AuditExplanation(
+                "انتهت محاولة الإرسال. الأرقام هي النجاح والتعثر والانتظار فقط.",
+                "The send attempt finished. The figures are only success, blocks and waiting.",
+            )
+        }
+        if (entityType == AuditVocab.ENTITY_HUB && reasonCode == "credential") {
+            return AuditExplanation(
+                "تم استبدال رمز الدخول. القيمة غير محفوظة في السجل.",
+                "The sign-in credential was replaced. The value is not in the record.",
+            )
+        }
+        if (entityType == AuditVocab.ENTITY_HUB && reasonCode == "resume") {
+            return AuditExplanation(
+                "تمت مراجعة الاتصال. قائمة الانتظار يمكن أن تكمل لنفس المركز.",
+                "The connection was checked. The queue may continue for the same hub.",
+            )
+        }
+        if (entityType == AuditVocab.ENTITY_HUB && reasonCode == "origin_changed") {
+            return AuditExplanation(
+                "تغيّر عنوان المركز. القرارات القديمة لا تُرسل إلى العنوان الجديد.",
+                "The hub address changed. Older decisions are not sent to the new address.",
+            )
+        }
         if (result == AuditVocab.RESULT_CONFLICT) {
             return AuditExplanation(
                 "تعذر الحفظ لأن السجل موجود.",

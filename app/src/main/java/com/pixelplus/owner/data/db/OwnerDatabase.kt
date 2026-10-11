@@ -7,7 +7,9 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import com.pixelplus.owner.audit.OutboxSeal
 import com.pixelplus.owner.audit.AuditRuntime
+import com.pixelplus.owner.audit.AuditSealer
 import com.pixelplus.owner.audit.ChainReport
 import com.pixelplus.owner.audit.PlainAuditSealer
 import com.pixelplus.owner.audit.RandomIdSource
@@ -28,8 +30,14 @@ import com.pixelplus.owner.audit.RandomIdSource
         AuditChainEntity::class,
         AuditEntryEntity::class,
         UndoRecordEntity::class,
+        OutboxOperationEntity::class,
+        SyncCursorEntity::class,
+        LicenceRequestEntity::class,
+        HubEventEntity::class,
+        MailboxReceiptEntity::class,
+        NotificationReceiptEntity::class,
     ],
-    version = 2,
+    version = 3,
     exportSchema = true,
 )
 abstract class OwnerDatabase : RoomDatabase() {
@@ -37,8 +45,13 @@ abstract class OwnerDatabase : RoomDatabase() {
 
     abstract fun auditDao(): AuditDao
 
+    abstract fun syncDao(): SyncDao
+
     @Volatile
     internal var auditRuntime: AuditRuntime = AuditRuntime(RandomIdSource, PlainAuditSealer)
+
+    @Volatile
+    internal var outboxSealer: AuditSealer = PlainAuditSealer
 
     internal fun records(): OwnerRecords = OwnerRecords(this)
 
@@ -46,7 +59,7 @@ abstract class OwnerDatabase : RoomDatabase() {
 
     companion object {
         const val DATABASE_NAME = "pixel-plus-owner.db"
-        const val VERSION = 2
+        const val VERSION = 3
 
         val TABLE_NAMES: List<String> = listOf(
             "workspaces",
@@ -58,6 +71,12 @@ abstract class OwnerDatabase : RoomDatabase() {
             "audit_chain",
             "audit_entries",
             "undo_records",
+            "outbox",
+            "sync_cursors",
+            "licence_requests",
+            "hub_events",
+            "mailbox_receipts",
+            "notification_receipts",
         )
 
         fun open(
@@ -73,7 +92,13 @@ abstract class OwnerDatabase : RoomDatabase() {
                 .addCallback(ConstraintCallback)
             if (allowMainThreadQueries) builder.allowMainThreadQueries()
             val database = builder.build()
-            database.auditRuntime = runtime ?: AuditRuntime.resolve(context)
+            val resolved = runtime ?: AuditRuntime.resolve(context)
+            database.auditRuntime = resolved
+            database.outboxSealer = if (runtime != null) {
+                resolved.sealer
+            } else {
+                OutboxSeal.resolve()
+            }
             return database
         }
     }

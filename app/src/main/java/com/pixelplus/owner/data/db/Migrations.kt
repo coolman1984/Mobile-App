@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
  */
 internal object OwnerMigrations {
     val ALL: Array<Migration>
-        get() = arrayOf(MIGRATION_1_2)
+        get() = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 
     /**
      * Indexes Room did not declare. They are recreated by [applyConstraints].
@@ -33,6 +33,44 @@ internal object OwnerMigrations {
             AUDIT_TABLES.forEach { db.execSQL(it) }
         }
     }
+
+    private val MIGRATION_2_3 = object : Migration(2, 3) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            PARTIAL_INDEXES.forEach { name -> db.execSQL("DROP INDEX IF EXISTS `$name`") }
+            db.execSQL("ALTER TABLE `hub_profiles` ADD COLUMN `credentialEpoch` INTEGER NOT NULL DEFAULT 1")
+            db.execSQL("ALTER TABLE `hub_profiles` ADD COLUMN `dispatchPaused` INTEGER NOT NULL DEFAULT 0")
+            SYNC_TABLES.forEach { db.execSQL(it) }
+        }
+    }
+
+    /**
+     * Room's expected create statements for version 3. Filled to match the
+     * exported schema, including the space Room leaves before each foreign-key close.
+     */
+    private val SYNC_TABLES: List<String> = listOf(
+        """CREATE TABLE IF NOT EXISTS `outbox` (`operationId` TEXT NOT NULL, `profileId` TEXT NOT NULL, `originEpoch` INTEGER NOT NULL, `credentialEpoch` INTEGER NOT NULL, `operationType` TEXT NOT NULL, `entityId` TEXT NOT NULL, `payloadCiphertext` BLOB NOT NULL, `payloadHash` TEXT NOT NULL, `idempotencyKey` TEXT NOT NULL, `expectedStateHash` TEXT NOT NULL, `dependsOn` TEXT, `status` TEXT NOT NULL, `attempts` INTEGER NOT NULL, `nextAttemptAt` INTEGER NOT NULL, `leaseUntil` INTEGER, `lastErrorCode` TEXT, `expiresAt` INTEGER NOT NULL, `confirmedAt` INTEGER, `createdAtUtcMs` INTEGER NOT NULL, `keyAliasVersion` INTEGER NOT NULL, PRIMARY KEY(`operationId`), FOREIGN KEY(`profileId`) REFERENCES `hub_profiles`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`dependsOn`) REFERENCES `outbox`(`operationId`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE UNIQUE INDEX IF NOT EXISTS `index_outbox_idempotency` ON `outbox` (`profileId`, `idempotencyKey`)""",
+        """CREATE INDEX IF NOT EXISTS `index_outbox_status_attempt` ON `outbox` (`status`, `nextAttemptAt`)""",
+        """CREATE INDEX IF NOT EXISTS `index_outbox_profile` ON `outbox` (`profileId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_outbox_depends` ON `outbox` (`dependsOn`)""",
+        """CREATE TABLE IF NOT EXISTS `sync_cursors` (`profileId` TEXT NOT NULL, `stream` TEXT NOT NULL, `cursor` TEXT NOT NULL, `lastSuccess` INTEGER, `lastAttempt` INTEGER NOT NULL, `coverageStart` INTEGER, `coverageEnd` INTEGER, `complete` INTEGER NOT NULL, PRIMARY KEY(`profileId`, `stream`), FOREIGN KEY(`profileId`) REFERENCES `hub_profiles`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE INDEX IF NOT EXISTS `index_sync_cursors_profile` ON `sync_cursors` (`profileId`)""",
+        """CREATE TABLE IF NOT EXISTS `licence_requests` (`id` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `createdAtUtcMs` INTEGER NOT NULL, `updatedAtUtcMs` INTEGER NOT NULL, `revision` INTEGER NOT NULL DEFAULT 1, `deletedAtUtcMs` INTEGER, `hubProfileId` TEXT NOT NULL, `remoteId` TEXT NOT NULL, `productCode` TEXT NOT NULL, `deviceCode` TEXT NOT NULL, `customerId` TEXT, `kind` TEXT NOT NULL, `serverStatus` TEXT NOT NULL, `ownerDecision` TEXT, `ownerDecidedAt` INTEGER, `createdServerAt` INTEGER NOT NULL, `fetchedAt` INTEGER NOT NULL, `snapshotHash` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workspaceId`) REFERENCES `workspaces`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`hubProfileId`) REFERENCES `hub_profiles`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`customerId`) REFERENCES `customers`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE UNIQUE INDEX IF NOT EXISTS `index_licence_requests_remote` ON `licence_requests` (`hubProfileId`, `remoteId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_licence_requests_status` ON `licence_requests` (`hubProfileId`, `serverStatus`, `createdServerAt`, `id`)""",
+        """CREATE INDEX IF NOT EXISTS `index_licence_requests_workspace` ON `licence_requests` (`workspaceId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_licence_requests_customer` ON `licence_requests` (`customerId`)""",
+        """CREATE TABLE IF NOT EXISTS `hub_events` (`id` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `createdAtUtcMs` INTEGER NOT NULL, `updatedAtUtcMs` INTEGER NOT NULL, `revision` INTEGER NOT NULL DEFAULT 1, `deletedAtUtcMs` INTEGER, `profileId` TEXT NOT NULL, `remoteEventId` TEXT NOT NULL, `requestRemoteId` TEXT, `eventType` TEXT NOT NULL, `eventAt` INTEGER NOT NULL, `safeDetail` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workspaceId`) REFERENCES `workspaces`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`profileId`) REFERENCES `hub_profiles`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE UNIQUE INDEX IF NOT EXISTS `index_hub_events_remote` ON `hub_events` (`profileId`, `remoteEventId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_hub_events_time` ON `hub_events` (`eventAt`)""",
+        """CREATE INDEX IF NOT EXISTS `index_hub_events_workspace` ON `hub_events` (`workspaceId`)""",
+        """CREATE TABLE IF NOT EXISTS `mailbox_receipts` (`id` TEXT NOT NULL, `workspaceId` TEXT NOT NULL, `createdAtUtcMs` INTEGER NOT NULL, `updatedAtUtcMs` INTEGER NOT NULL, `revision` INTEGER NOT NULL DEFAULT 1, `deletedAtUtcMs` INTEGER, `profileId` TEXT NOT NULL, `batchId` TEXT NOT NULL, `installRemoteId` TEXT NOT NULL, `receivedAt` INTEGER NOT NULL, `byteCount` INTEGER NOT NULL, `known` INTEGER NOT NULL, `payloadDigest` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`workspaceId`) REFERENCES `workspaces`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT , FOREIGN KEY(`profileId`) REFERENCES `hub_profiles`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE UNIQUE INDEX IF NOT EXISTS `index_mailbox_receipts_batch` ON `mailbox_receipts` (`profileId`, `batchId`)""",
+        """CREATE INDEX IF NOT EXISTS `index_mailbox_receipts_workspace` ON `mailbox_receipts` (`workspaceId`)""",
+        """CREATE TABLE IF NOT EXISTS `notification_receipts` (`stableEventKey` TEXT NOT NULL, `profileId` TEXT NOT NULL, `scheduledAt` INTEGER NOT NULL, `deliveredAt` INTEGER, `channel` TEXT NOT NULL, PRIMARY KEY(`stableEventKey`), FOREIGN KEY(`profileId`) REFERENCES `hub_profiles`(`id`) ON UPDATE RESTRICT ON DELETE RESTRICT )""",
+        """CREATE UNIQUE INDEX IF NOT EXISTS `index_notification_receipts_key` ON `notification_receipts` (`stableEventKey`)""",
+        """CREATE INDEX IF NOT EXISTS `index_notification_receipts_profile` ON `notification_receipts` (`profileId`)""",
+    )
 
     fun applyConstraints(db: SupportSQLiteDatabase) {
         STATEMENTS.forEach { db.execSQL(it) }
@@ -194,6 +232,7 @@ internal object OwnerMigrations {
             """.trimIndent(),
         )
         addAll(AUDIT_GUARDS)
+        addAll(SYNC_GUARDS)
         }
     }
 
@@ -316,6 +355,135 @@ internal object OwnerMigrations {
         )
         BEGIN
         SELECT RAISE(ABORT, 'undo_frozen');
+        END
+        """.trimIndent(),
+    )
+
+    private val SYNC_GUARDS: List<String> = listOf(
+        """
+        CREATE TRIGGER IF NOT EXISTS hub_profiles_credential
+        BEFORE UPDATE ON hub_profiles
+        WHEN NEW.credentialEpoch < OLD.credentialEpoch
+        OR NEW.credentialEpoch < 1
+        OR NEW.dispatchPaused NOT IN (0, 1)
+        BEGIN
+        SELECT RAISE(ABORT, 'credential_epoch');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS hub_profiles_insert_credential
+        BEFORE INSERT ON hub_profiles
+        WHEN NEW.credentialEpoch < 1
+        OR NEW.dispatchPaused NOT IN (0, 1)
+        BEGIN
+        SELECT RAISE(ABORT, 'credential_epoch');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS outbox_no_delete
+        BEFORE DELETE ON outbox
+        BEGIN
+        SELECT RAISE(ABORT, 'outbox_kept');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS outbox_payload_frozen
+        BEFORE UPDATE ON outbox
+        WHEN NEW.operationId != OLD.operationId
+        OR NEW.profileId != OLD.profileId
+        OR NEW.originEpoch != OLD.originEpoch
+        OR NEW.operationType != OLD.operationType
+        OR NEW.entityId != OLD.entityId
+        OR NEW.payloadCiphertext != OLD.payloadCiphertext
+        OR NEW.payloadHash != OLD.payloadHash
+        OR NEW.idempotencyKey != OLD.idempotencyKey
+        OR NEW.expectedStateHash != OLD.expectedStateHash
+        OR NEW.dependsOn IS NOT OLD.dependsOn
+        OR NEW.createdAtUtcMs != OLD.createdAtUtcMs
+        OR NEW.keyAliasVersion != OLD.keyAliasVersion
+        OR NEW.expiresAt != OLD.expiresAt
+        BEGIN
+        SELECT RAISE(ABORT, 'outbox_frozen');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS outbox_status
+        BEFORE UPDATE ON outbox
+        WHEN NEW.status NOT IN (
+        'CONFIRMED_LOCAL','QUEUED','LEASED','SENT','CONFIRMED_REMOTE',
+        'RETRY_WAIT','CONFLICT','NEEDS_REVIEW','CANCELLED','AUTH_BLOCKED')
+        OR (NEW.status = 'CONFIRMED_REMOTE' AND NEW.confirmedAt IS NULL)
+        BEGIN
+        SELECT RAISE(ABORT, 'outbox_status');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS sync_cursors_no_delete
+        BEFORE DELETE ON sync_cursors
+        BEGIN
+        SELECT RAISE(ABORT, 'cursor_kept');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS licence_requests_no_delete
+        BEFORE DELETE ON licence_requests
+        BEGIN
+        SELECT RAISE(ABORT, 'cache_kept');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS hub_events_no_delete
+        BEFORE DELETE ON hub_events
+        BEGIN
+        SELECT RAISE(ABORT, 'cache_kept');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS mailbox_receipts_no_delete
+        BEFORE DELETE ON mailbox_receipts
+        BEGIN
+        SELECT RAISE(ABORT, 'cache_kept');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS notification_receipts_no_delete
+        BEFORE DELETE ON notification_receipts
+        BEGIN
+        SELECT RAISE(ABORT, 'notice_kept');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS licence_requests_shape
+        BEFORE INSERT ON licence_requests
+        WHEN NEW.serverStatus NOT IN ('pending','refused','issued','delivered')
+        OR NEW.productCode NOT GLOB '[a-z0-9]*'
+        OR NEW.productCode GLOB '*[^a-z0-9._-]*'
+        OR length(NEW.snapshotHash) != 64
+        OR NEW.snapshotHash GLOB '*[^0-9a-f]*'
+        BEGIN
+        SELECT RAISE(ABORT, 'bad_request_cache');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS mailbox_receipts_shape
+        BEFORE INSERT ON mailbox_receipts
+        WHEN NEW.known NOT IN (0, 1)
+        OR length(NEW.payloadDigest) != 64
+        OR NEW.payloadDigest GLOB '*[^0-9a-f]*'
+        OR length(NEW.batchId) < 1
+        OR length(NEW.batchId) > 80
+        BEGIN
+        SELECT RAISE(ABORT, 'bad_mailbox');
+        END
+        """.trimIndent(),
+        """
+        CREATE TRIGGER IF NOT EXISTS notification_receipts_shape
+        BEFORE INSERT ON notification_receipts
+        WHEN NEW.channel != 'hub'
+        OR NEW.stableEventKey NOT GLOB 'request:*'
+        AND NEW.stableEventKey NOT GLOB 'event:*'
+        BEGIN
+        SELECT RAISE(ABORT, 'bad_notice');
         END
         """.trimIndent(),
     )

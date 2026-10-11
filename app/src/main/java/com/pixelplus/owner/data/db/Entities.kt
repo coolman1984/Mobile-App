@@ -173,6 +173,10 @@ data class HubProfileEntity(
     @ColumnInfo(defaultValue = "1") val originEpoch: Long,
     @ColumnInfo(defaultValue = "'{}'") val capabilitiesJson: String,
     val lastTestUtcMs: Long?,
+    /** Counts credential replacements. The token itself is never stored. */
+    @ColumnInfo(defaultValue = "1") val credentialEpoch: Long = 1,
+    /** 1 while a replaced credential must be checked before any send. */
+    @ColumnInfo(defaultValue = "0") val dispatchPaused: Int = 0,
 )
 
 @Entity(

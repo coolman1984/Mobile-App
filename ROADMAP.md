@@ -68,6 +68,32 @@ Still open, on purpose:
 - Customer names and phones are still opaque bytes. Sealing those bytes with the Android Keystore is **NOT IMPLEMENTED**.
 - Do not describe the in-memory reversal as stored money.
 
+## M04 — durable decision queue and hub cache (2026-10-11, source verified)
+
+Continues the partial working-tree implementation after M03 (`ba22843`). Only M04 is implemented. Issue #47 was read through the GitHub API; its later signing direction remains gated by the newer implementation plan. No Worker changes, deployment, push, pricing change or real customer data access.
+
+- Room version 3 migrates version 1 through 2 in place, preserving the notebook and audit. Adds outbox, cursors, request/event caches, safe mailbox receipts and notification receipts. Tokens stay in encrypted preferences; no code or signing identity is stored.
+- The existing confirmation dialog saves an encrypted decision intent and bilingual audit entry together. It shows queued status, count and oldest age, plus blocked count. Double taps and a competing approve/refuse tap keep one active operation. The displayed remote decision is never changed optimistically.
+- Network-constrained unique work is scoped to the hub profile. Database leases, compare-and-set state writes, bounded exponential retry with jitter, 24-hour intent expiry and recovery after restart protect dispatch. State changes append bilingual audit records in the same transaction. Work input/output contains no tokens or payload.
+- Every POST is preceded by fresh state and paginated pending reads. `/states` returns raw approval, so the pending projection is also required to detect expired approvals. A successful POST is confirmed only by a subsequent fresh server read. A lost response or 5xx is reconciled before retrying the exact stored action/body/operation; no opposite action is sent as compensation. Malformed success, closed/absent requests and stale intents stop for review.
+- Origin changes invalidate old queued intents. Token rotation and clearing fence affected queues before changing encrypted settings. Settings commits and dispatch share a process lock; saves run off the UI thread. A successful connection and reconciliation are required before resuming a credential-paused queue; each operation is checked freshly again before dispatch.
+- Pending reads exhaust stable pages (up to 100 pages of 100; larger or repeated-page results fail closed). Rows and cursors commit together. Offline/network/server failures can show a labelled saved request snapshot and last successful connection; authorization denial remains visible. Cache records omit shop/name/reference/version text, licence codes, tokens and raw compressed mailbox bodies. Event free text is discarded. Events and mailbox coverage remain explicitly partial; disappearance never deletes local history.
+- Notification baselines and stable keys are stored per hub. First snapshots are silent, including an empty first snapshot. Observed keys suppress repeated attempts across restarts; `deliveredAt` is set only after Android accepts the notification. Counts only, Arabic and English. No `/ack`, `/licence/ack`, `/installs` writes, Firebase, paid library or signing path.
+
+Verification in this workspace:
+
+- `source /workspace/android-tools/env.sh && (cd apps/pixel-plus-owner-mobile && gradle --no-daemon :app:testDebugUnitTest :app:assembleDebug)` — 94 unit tests and debug build passed; dependency/SDK and debug APK secret/permission/signing audits included.
+- `(cd templates/telemetry-relay && PATH=/workspace/node22/bin:$PATH npm test)` — 52 tests passed, although no Worker files changed.
+- Android tests cover state machine, concurrent/double/opposite taps, lost and ambiguous responses, 5xx after commit, malformed 2xx, effective approval expiry, closed/absent requests, auth/credential/origin changes, lease recovery, bounded retry, encryption failure/tampering, cache/cursor rollback, migrations from 1 and 2, durable profile-scoped notification dedup and safe WorkManager input.
+
+Remaining M04 limits / safe subset:
+
+- The existing Worker accepts no operation receipt or conditional expected-state hash. Stable operation/idempotency IDs are local; server replay behavior is request/action based. A race between the fresh read and POST is still decided by existing Worker transitions. Full conditional receipts need a separately authorized later contract; auth was not weakened to create them.
+- The phone conservatively rejects a new approval older than the Worker's default 72 hours; a longer configured server window is not discoverable. Effective expiry is read from the server, and a shorter server window still wins. Device clock cannot be treated as trusted server time.
+- Only cached requests are connected to an offline screen. Event/mailbox repositories exist; their full offline screen projections, queue item review/cancel/reconfirm UI and reactive/background completion updates remain later M10/M15 work. Use refresh to update the queue summary. Global app language/navigation are M07; M04 feedback has paired Arabic/English paragraphs with RTL/LTR direction and Arabic first.
+- Outbox encryption fails closed when its separate Keystore key cannot round-trip; no plaintext fallback. Hardware Keystore proof, real handset install/offline/kill/notification drills, screenshots, TalkBack/large-font AR/EN review and emulator migration harness are **UNVERIFIED** here. Notifications use at-most-once attempts: permission denial or a crash between receipt and posting can suppress a notice; the in-app inbox remains authoritative.
+- Local outbox/cache history is retained without a destructive purge; no portable backup is claimed (M06/follow-on recovery). Remote audit upload remains M05. Signing and release signing remain OFF. Independent review, a PR and CI on the exact commit are pending; this session makes a local commit only, as requested.
+
 ## P2 — authenticated cloud request/alert read (remaining)
 - Read existing Control Center API and relay, map data contracts and authorization gaps.
 - Implement opt-in backend adaptor with one synthetic data tenant first: login/MFA, revocable device tokens, server-side scoped company access, read-only request inbox, alerts and device/company overview.

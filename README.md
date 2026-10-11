@@ -5,7 +5,7 @@ Native Android app for the company owner. It speaks Arabic, right to left.
 Two modes:
 
 - **Demo**, when no hub is saved. Companies, requests and alerts are fictional and stay in memory. The screen says so.
-- **Live hub**, after the owner saves an `https` address and the owner token. Pending licence requests and the licence event log come from the Cloudflare Worker. Approving a request only records the decision. Rejecting it closes the request. The phone never signs a code.
+- **Live hub**, after the owner saves an `https` address and the owner token. Pending licence requests and the licence event log come from the Cloudflare Worker. Confirming approval or refusal saves a local encrypted intent. After fresh reconciliation, approval records the owner decision and refusal closes the request. The phone never signs a code.
 
 No signing key, no Firebase, and no cleartext traffic. Tokens stay in the Android Keystore (`EncryptedSharedPreferences`). The telemetry pull token is optional. The app never calls `POST /ack`.
 
@@ -60,3 +60,7 @@ Each successful notebook change also appends a local audit line in Arabic and En
 Read `AGENTS.md`, `ROADMAP.md` and `SECURITY_AND_COMPATIBILITY.md` here, then the Worker contract in `templates/telemetry-relay/src/licence.js`. Do not put a signing key in this app. Keep `realIssuanceEnabled` false.
 
 Source of truth for later phases: [ROADMAP.md](ROADMAP.md). Security: [SECURITY_AND_COMPATIBILITY.md](SECURITY_AND_COMPATIBILITY.md).
+
+M04 adds a durable encrypted decision queue and safe hub metadata cache. Confirmations show Arabic/English queued feedback, count/age and review count; they never claim remote success until reconciled. A saved offline request snapshot is labelled with its last connection time. Changing hub address invalidates old intents; token rotation pauses them until the connection and request state are checked. Notifications deduplicate stable keys per hub across restarts. Room migrates to version 3 without wiping data. Details, verification and remaining limits are in [ROADMAP.md](ROADMAP.md#m04--durable-decision-queue-and-hub-cache-2026-10-11-source-verified).
+
+تأكيد الموافقة أو الرفض يحفظ قرارًا مشفّرًا في قائمة الانتظار على الهاتف. يراجع التطبيق حالة الطلب على المركز قبل الإرسال وقبل تأكيد النتيجة. يظهر عدد القرارات وعمر أقدم قرار، وتظهر النسخة المحفوظة بوضوح عند تعذر الاتصال. لا يصدر الهاتف كودًا، والتوقيع ما زال متوقفًا.

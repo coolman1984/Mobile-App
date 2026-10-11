@@ -10,6 +10,7 @@ import androidx.security.crypto.MasterKey
  * nothing is written in the clear and the app stays in demo mode.
  */
 class SecureHubStore(context: Context) {
+    private val appContext = context.applicationContext
     private val prefs: SharedPreferences? = open(context.applicationContext)
 
     val encryptionAvailable: Boolean get() = prefs != null
@@ -26,7 +27,7 @@ class SecureHubStore(context: Context) {
         return HubConfig(url, owner, pull)
     }
 
-    fun save(config: HubConfig): Boolean {
+    fun save(config: HubConfig): Boolean = synchronized(com.pixelplus.owner.sync.HubSession.lock) {
         val stored = prefs ?: return false
         val url = when (val parsed = normalizeHubUrl(config.baseUrl)) {
             is UrlResult.Ok -> parsed.url
@@ -34,6 +35,7 @@ class SecureHubStore(context: Context) {
         }
         val owner = cleanToken(config.ownerToken) ?: return false
         val pull = if (config.pullToken.isBlank()) "" else cleanToken(config.pullToken) ?: return false
+        if (!runCatching { com.pixelplus.owner.sync.OwnerSync.onSaved(appContext, read(), HubConfig(url, owner, pull)) }.getOrDefault(false)) return false
         return stored.edit()
             .putString(KEY_URL, url)
             .putString(KEY_OWNER, owner)
@@ -41,8 +43,9 @@ class SecureHubStore(context: Context) {
             .commit()
     }
 
-    fun clear(): Boolean {
+    fun clear(): Boolean = synchronized(com.pixelplus.owner.sync.HubSession.lock) {
         val stored = prefs ?: return false
+        if (!runCatching { com.pixelplus.owner.sync.OwnerSync.onCleared(appContext, read()) }.getOrDefault(false)) return false
         return stored.edit().clear().commit()
     }
 

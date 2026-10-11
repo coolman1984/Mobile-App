@@ -39,6 +39,12 @@ object AuditRedaction {
         "tested",
         "reversal",
         "op",
+        "status",
+        "attempts",
+        "credentialEpoch",
+        "queuedCount",
+        "confirmedCount",
+        "blockedCount",
     )
 
     private val SENSITIVE_KEYS: Set<String> = setOf(

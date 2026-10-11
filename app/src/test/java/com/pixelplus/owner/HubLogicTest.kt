@@ -99,7 +99,7 @@ class HubLogicTest {
         assertEquals(second.next.requestIds, failed.next.requestIds)
         assertTrue(failed.newRequestIds.isEmpty())
         assertNull(notificationText(first))
-        assertEquals("طلبات جديدة: 1", notificationText(second))
+        assertEquals("طلبات جديدة: 1 / New requests: 1", notificationText(second))
         assertFalse(notificationText(second)!!.contains(secret))
     }
 
