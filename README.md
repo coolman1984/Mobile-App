@@ -69,6 +69,6 @@ M05 adds a staged client for the hub's audit mirror (`audit/AuditMirrorClient.kt
 
 المرحلة M05 تضيف عميلًا مرحليًا لنسخة سجل المراجعة على المركز، ولا يستدعيه التطبيق بعد. لا يرسل الهاتف رموزًا ولا أسماء عملاء ولا مبالغ، والمركز الأقدم يرد «غير متاح» دون أن يظهر شيء للمالك.
 
-M06 (encrypted backup core: archive format, restore checks, snapshot coordinator) and M07 (navigation model, deep-link gate, paired Arabic/English strings) are in the source as tested pure logic and are **not wired into any screen yet**. There is no backup button, no restore and no new navigation in the app, and cross-device recovery is not available. See [ROADMAP.md](ROADMAP.md) for what was and was not run.
+M06 (encrypted backup core) is tested pure logic and is **not wired into any screen**: there is no backup button and no restore, and cross-device recovery is not available. M07 replaces the six-tab bar with five roots (Home, Requests, Customers, Alerts, More) and paired Arabic/English labels; its Compose shell is written but **has not been compiled or run**. See [ROADMAP.md](ROADMAP.md) for what was and was not run.
 
-M06 و M07 موجودان في الكود كمنطق مُختبَر فقط ولم يُربطا بأي شاشة بعد. لا يوجد زر نسخ احتياطي ولا استعادة ولا تنقل جديد في التطبيق، والاسترداد على هاتف آخر غير متاح.
+النسخ الاحتياطي (M06) منطق مُختبَر فقط وغير مربوط بأي شاشة، ولا يوجد زر نسخ أو استعادة. التنقل الجديد (M07) مكتوب لكنه لم يُبنَ ولم يُجرَّب على هاتف بعد، والاسترداد على هاتف آخر غير متاح.

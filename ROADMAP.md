@@ -130,20 +130,26 @@ Verification actually run: `BackupTest` (16 tests: round trip, no plaintext, fre
 
 **NOT IMPLEMENTED** (each is its own piece of work): the Room-backed `SnapshotSource` and the logical JSON exporter; the SAF destination and persisted tree permission; the daily WorkManager job and "Back up now"; the restore screen, reauthentication and the atomic replacement of the live database; starting the new audit chain from the restored head; streaming (the archive is built in memory and capped at 64 MiB, larger snapshots fail with TOO_LARGE); portable recovery with an owner-held secret; the instrumented Keystore, migration and clean-phone restore drills. Cross-device recovery is therefore **not available**, and no screen may promise it.
 
-## M07 — navigation model and bilingual strings (2026-10-11, pure logic verified, not wired)
+## M07 — navigation model, bilingual strings and the new shell (2026-10-11, logic verified, shell UNVERIFIED)
 
-Source only. The running app still uses its old six-tab `OwnerApp`; per the plan the UI stays on the existing route until its replacement passes, and Navigation Compose stays out of the APK. This milestone adds the part that can be tested without a handset.
+The pure model is tested. The Compose shell that draws it is written but **was never compiled or run**: the Android SDK and Google's Maven repository are both unreachable here, so only the model, the resources and a stub-based type check of `NavUi.kt` could be run. Treat the shell as unreviewed until `gradle :app:testDebugUnitTest :app:assembleDebug` and a handset pass.
 
-- `navigation/Destinations.kt`: one table of every destination from the plan's map (five roots, details, the More categories, settings pages, the licence-codes module). Each has a path with at most one opaque `{id}`, its root, an optional More category and an optional capability.
-- `navigation/Route.kt`: `Route.parse` is the only way in from outside text. It refuses queries, fragments, `..`, `%`, control characters, ids over 64 characters and long hex strings (token or hash shaped), and reads `payment/new` as a literal, never an id.
-- `navigation/NavState.kt`: five remembered root stacks; reselecting a root pops to it; opening the same route twice stacks it once; Back closes sheet, then drawer, then detail, then goes Home, then asks to exit; `OneShot` hands an event to the screen exactly once across a rebuild.
-- `navigation/DeepLink.kt`: nothing opens while locked; the link is kept and decided again after unlock with the capabilities granted at that time. A screen that needs the hub explains it when there is none; every licence-codes screen is "unavailable" while signing is off.
-- `navigation/NavLayout.kt`: bottom bar below 600dp, rail from 600dp; badge counts only, capped at 99+.
-- Resources: `values/strings.xml` (Arabic) and the new `values-en/strings.xml` hold the same 58 keys; a test fails if a key is missing, empty, orphaned, English text contains Arabic letters, or a placeholder differs. The English app name is now "Pixel Plus Owner" on English-language phones.
+Model (`navigation/`, no Android types):
+- `Destinations.kt`: one table of every destination from the plan's map (five roots, details, the More categories, settings pages, the licence-codes module), each with a path holding at most one opaque `{id}`, its root, an optional More category and an optional capability.
+- `Route.kt`: `Route.parse` is the only way in from outside text. It refuses queries, fragments, `..`, `%`, control characters, ids over 64 characters and long hex strings (token or hash shaped), and reads `payment/new` as a literal.
+- `NavState.kt`: five remembered root stacks; reselecting a root pops to it; the same route twice stacks once; Back closes sheet, then drawer, then detail, then goes Home, then asks to exit; `OneShot` hands an event over exactly once; `encode`/`decode` survive a rotation or recreation (paths only, overlays closed, unsafe or duplicate entries dropped, depth capped).
+- `DeepLink.kt`: nothing opens while locked; the link is kept and decided again after unlock with the capabilities granted then. A screen that needs the hub explains when there is none; every licence-codes screen is "unavailable" while `REAL_ISSUANCE_ENABLED` is false.
+- `NavLayout.kt`: bottom bar below 600dp, rail from 600dp; badge counts only, capped at 99+.
+- Resources: `values/strings.xml` (Arabic) and `values-en/strings.xml` hold the same 60 keys; a test fails if a key is missing, empty or orphaned, English text contains Arabic letters, or a placeholder differs. The English app name is now "Pixel Plus Owner" on English-language phones.
 
-Verification actually run: `NavigationTest` (16 tests) with the standalone Kotlin compiler; together with M05/M06 and the existing `HubLogicTest`, `DemoStateTest`, `AuditChainTest` the scratch run was 68 tests, all green. Gradle and CI were **NOT run**.
+Shell (`OwnerApp.kt`, `NavUi.kt`), changed in this step:
+- The six-tab bar is replaced by the five roots (Home, Requests, Customers, Alerts, More) as a bottom bar, or a rail from 600dp. Badges show pending requests and unread alerts. The root state is saved across recreation (`rememberSaveable`) and the system Back goes through the reducer (`BackHandler`).
+- Customers shows the existing fictional-companies screen (the real customer book is M11). Settings and the disabled Licence Codes explanation moved under More; More lists every category and marks entries that have no screen yet. Any destination without a screen, or without its capability, opens an explanation instead of a half screen.
+- The request decision flow, the queue, the settings form and the hub refresh code are untouched.
 
-**NOT IMPLEMENTED**: the Compose shell (bottom bar, rail, drawer, More screen, retained root state), reading the string keys from `R`, the back handler, wiring deep links into `MainActivity` and the lock, the screens behind the destinations, and the emulator navigation/RTL smoke test. Most More entries will show the "not connected yet" text until their milestones exist.
+Verification actually run: `NavigationTest` (18 tests) with the standalone Kotlin compiler; with M05/M06 and the existing `HubLogicTest`, `DemoStateTest`, `AuditChainTest` the scratch run was 70 tests, all green. `NavUi.kt` type-checked against hand-written Compose stubs (which proves my own code, not the real signatures). `OwnerApp.kt` was only checked for syntax, because its other dependencies (WorkManager, Room, Keystore) cannot be compiled here. Gradle and CI were **NOT run**.
+
+**NOT IMPLEMENTED**: the categorised drawer (the More tab carries the categories instead; `drawerOpen` exists in the state but nothing opens it), the bottom sheet, deep-link intake in `MainActivity` (the manifest has no deep-link filter on purpose; there is no app lock yet, M09), a language setting (all existing screen text is still hard-coded Arabic, so an English phone sees English tab labels over Arabic screens), the screens behind most destinations, and the emulator navigation/RTL smoke test.
 
 ## P2 — authenticated cloud request/alert read (remaining)
 - Read existing Control Center API and relay, map data contracts and authorization gaps.

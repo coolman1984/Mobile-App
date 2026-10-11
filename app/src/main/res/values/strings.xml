@@ -3,6 +3,8 @@
     <string name="badge_overflow">٩٩+</string>
     <string name="unavailable_not_connected">هذه الشاشة غير متصلة بالمركز بعد.</string>
     <string name="unavailable_signing_off">إصدار الأكواد من الهاتف متوقف ولا يعمل.</string>
+    <string name="unavailable_not_built">هذه الشاشة لم تُبنَ بعد.</string>
+    <string name="more_unavailable_suffix">غير متاح بعد</string>
     <string name="unlock_required">افتح القفل أولًا.</string>
     <string name="nav_home">الرئيسية</string>
     <string name="nav_requests">الطلبات</string>

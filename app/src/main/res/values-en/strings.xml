@@ -3,6 +3,8 @@
     <string name="badge_overflow">99+</string>
     <string name="unavailable_not_connected">This screen is not connected to the hub yet.</string>
     <string name="unavailable_signing_off">Issuing codes from the phone is switched off.</string>
+    <string name="unavailable_not_built">This screen is not built yet.</string>
+    <string name="more_unavailable_suffix">Not available yet</string>
     <string name="unlock_required">Unlock first.</string>
     <string name="nav_home">Home</string>
     <string name="nav_requests">Requests</string>

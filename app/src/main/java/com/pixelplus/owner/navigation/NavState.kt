@@ -14,6 +14,32 @@ data class NavState(
     val sheetOpen: Boolean = false,
 ) {
     val top: Route get() = stacks.getValue(root).lastOrNull() ?: Route.root(root)
+
+    /**
+     * What survives a rotation or the process being recreated: the shown root and every stack, as plain strings that hold only
+     * paths (opaque ids, never a secret). Overlays are closed on restore. Entries that no longer parse are dropped.
+     */
+    fun encode(): List<String> = buildList {
+        add(root.name)
+        RootTab.entries.forEach { tab -> stacks.getValue(tab).forEach { add("${tab.name}|${it.path}") } }
+    }
+
+    companion object {
+        const val MAX_RESTORED_DEPTH = 8
+
+        fun decode(saved: List<String>?): NavState {
+            val root = saved?.firstOrNull()?.let { name -> RootTab.entries.firstOrNull { it.name == name } } ?: return NavState()
+            val stacks = RootTab.entries.associateWith { mutableListOf<Route>() }
+            saved.drop(1).forEach { line ->
+                val tab = RootTab.entries.firstOrNull { line.startsWith(it.name + "|") } ?: return@forEach
+                val route = Route.parse(line.substring(tab.name.length + 1)) ?: return@forEach
+                if (route.dest.root != tab || route.dest.pattern == tab.path) return@forEach
+                val stack = stacks.getValue(tab)
+                if (stack.size < MAX_RESTORED_DEPTH && stack.lastOrNull() != route) stack += route
+            }
+            return NavState(root = root, stacks = stacks.mapValues { it.value.toList() })
+        }
+    }
 }
 
 sealed class NavEvent {

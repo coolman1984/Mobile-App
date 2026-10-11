@@ -173,7 +173,7 @@ class NavigationTest {
         val en = strings("values-en")
         assertEquals(ar.keys, en.keys)
         val needed = Destinations.all.map { it.labelKey } + MoreCategory.entries.map { it.labelKey } +
-            listOf("app_name", "badge_overflow", "unavailable_not_connected", "unavailable_signing_off", "unlock_required")
+            listOf("app_name", "badge_overflow", "unavailable_not_connected", "unavailable_signing_off", "unlock_required", "unavailable_not_built", "more_unavailable_suffix")
         for (key in needed) {
             assertTrue("ar $key", !ar[key].isNullOrBlank())
             assertTrue("en $key", !en[key].isNullOrBlank())
@@ -189,5 +189,33 @@ class NavigationTest {
         for ((k, v) in en) assertFalse("en $k", arabic.containsMatchIn(v))
         for (k in ar.keys) assertEquals(k, Regex("%\\d?\\$?[sd]").findAll(ar.getValue(k)).count(), Regex("%\\d?\\$?[sd]").findAll(en.getValue(k)).count())
         assertFalse(en.values.any { it.contains("'") && !it.contains("\\'") })
+    }
+
+    // ---- save and restore ----
+
+    @Test fun theStateSurvivesARoundTripWithoutOverlays() {
+        val before = run(
+            NavEvent.SelectRoot(RootTab.REQUESTS), NavEvent.Open(route("request/$id")),
+            NavEvent.Open(route("settings/backup")), NavEvent.OpenDrawer, NavEvent.OpenSheet,
+        ).state
+        val after = NavState.decode(before.encode())
+        assertEquals(before.copy(drawerOpen = false, sheetOpen = false), after)
+        assertEquals(route("settings/backup"), after.top)
+    }
+
+    @Test fun aDamagedSavedStateFallsBackToHomeAndKeepsOnlySafeEntries() {
+        assertEquals(NavState(), NavState.decode(null))
+        assertEquals(NavState(), NavState.decode(emptyList()))
+        assertEquals(NavState(), NavState.decode(listOf("NOPE")))
+        val saved = listOf(
+            "CUSTOMERS", "CUSTOMERS|customer/$id", "CUSTOMERS|customer/$id", "CUSTOMERS|request/$id", "CUSTOMERS|customers",
+            "CUSTOMERS|customer/..", "REQUESTS|request/" + "ab".repeat(30), "ELSE|home", "garbage",
+        )
+        val state = NavState.decode(saved)
+        assertEquals(RootTab.CUSTOMERS, state.root)
+        assertEquals(listOf(route("customer/$id")), state.stacks.getValue(RootTab.CUSTOMERS))
+        assertTrue(state.stacks.getValue(RootTab.REQUESTS).isEmpty())
+        val deep = listOf("MORE") + (1..30).map { "MORE|settings/backup" } + (1..30).map { "MORE|product/p$it" }
+        assertTrue(NavState.decode(deep).stacks.getValue(RootTab.MORE).size <= NavState.MAX_RESTORED_DEPTH)
     }
 }
