@@ -313,7 +313,9 @@ fun OwnerApp(prefs: OwnerPrefs, onRequestNotifications: () -> Unit = {}) {
                         "settings_appearance" -> AppearanceScreen(appearance) { appearance = it; prefs.saveAppearance(it) }
                         "settings_lock" -> LockSettingsScreen(lockPrefs, deviceIsSecure(context)) { lockPrefs = it; prefs.saveLock(it) }
                         "settings_backup" -> BackupScreen()
-                        "activity" -> ActivityScreen()
+                        "activity" -> ActivityScreen(config)
+                        "licences" -> LicenceHistoryScreen(config)
+                        "installs" -> InstallsScreen(config)
                         "money" -> MoneyScreen()
                         "followups" -> FollowUpsScreen()
                         else -> UnavailableScreen(here, "unavailable_not_built")

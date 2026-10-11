@@ -35,6 +35,9 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pixelplus.owner.audit.ActivityReader
+import com.pixelplus.owner.audit.HistoryRow
+import com.pixelplus.owner.audit.MirrorResult
+import com.pixelplus.owner.audit.OwnerReadClient
 import com.pixelplus.owner.audit.ActivitySnapshot
 import com.pixelplus.owner.backup.AndroidBackup
 import com.pixelplus.owner.data.BookResult
@@ -132,8 +135,10 @@ internal fun LockSettingsScreen(current: LockPrefs, secure: Boolean, onChange: (
 }
 
 @Composable
-internal fun ActivityScreen() {
+internal fun ActivityScreen(config: HubConfig? = null) {
     val context = LocalContext.current
+    var mirrorNote by remember { mutableStateOf<String?>(null) }
+    var mirrorBusy by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
     var snapshot by remember { mutableStateOf<ActivitySnapshot?>(null) }
     var failed by remember { mutableStateOf(false) }
@@ -154,9 +159,35 @@ internal fun ActivityScreen() {
         else -> {
             Text(if (s.ok) "التحقق من السجل: سليم (${s.count} سطر)" else "التحقق من السجل: غير سليم. لا تعتمد عليه.", fontWeight = FontWeight.Bold)
             Text("Activity chain: " + if (s.ok) "ok" else "MISMATCH", style = MaterialTheme.typography.bodySmall)
-            Text("السجل محلي على هذا الهاتف ولا يُرسل إلى المركز بعد. لا يحتوي أسماء ولا أرقام هواتف ولا مبالغ ولا رموز.")
+            Text("السجل محلي على هذا الهاتف، ولا يُرسل إلى المركز إلا عندما تضغط زر الإرسال. لا يحتوي أسماء ولا أرقام هواتف ولا مبالغ ولا رموز.")
             OutlinedButton(onClick = { clipboard.setText(AnnotatedString(s.markdown)); copied = true }, modifier = Modifier.fillMaxWidth()) {
                 Text(if (copied) "✓ نُسخ التصدير" else "نسخ التصدير (نص)")
+            }
+            if (config != null && config.isLive) {
+                OutlinedButton(
+                    enabled = !mirrorBusy,
+                    onClick = {
+                        mirrorBusy = true
+                        mirrorNote = null
+                        val main = android.os.Handler(android.os.Looper.getMainLooper())
+                        Thread {
+                            val r = runCatching { com.pixelplus.owner.audit.AuditMirrorRunner.runOnce(context.applicationContext, config) }
+                                .getOrElse { com.pixelplus.owner.audit.AuditMirrorRunner.Result.Blocked("حدث خطأ. لم يتغير شيء.", "Error. Nothing changed.") }
+                            main.post {
+                                mirrorBusy = false
+                                mirrorNote = when (r) {
+                                    is com.pixelplus.owner.audit.AuditMirrorRunner.Result.Sent -> "أُرسل ${r.count} سطر إلى المركز." + if (r.upToDate) "" else " اضغط مرة أخرى لإرسال الباقي."
+                                    com.pixelplus.owner.audit.AuditMirrorRunner.Result.UpToDate -> "المركز يحمل السجل كاملًا."
+                                    com.pixelplus.owner.audit.AuditMirrorRunner.Result.NotAvailable -> "هذا المركز لا يدعم نسخ السجل بعد. لم يُرسل شيء."
+                                    com.pixelplus.owner.audit.AuditMirrorRunner.Result.NothingToSend -> "لا يوجد سجل لإرساله."
+                                    is com.pixelplus.owner.audit.AuditMirrorRunner.Result.Blocked -> r.reasonAr + "\n" + r.reasonEn
+                                }
+                            }
+                        }.start()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text(if (mirrorBusy) "جارٍ الإرسال" else "إرسال السجل إلى المركز (يدويًا)") }
+                mirrorNote?.let { Text(it) }
             }
             if (s.lines.isEmpty()) Text("لا توجد أنشطة بعد.")
             s.lines.forEach { line ->
@@ -477,4 +508,94 @@ private fun NotesPanel(customerId: String) {
         Button(onClick = { val t = text; run { CustomerBook.addNote(context.applicationContext, customerId, t) } }, modifier = Modifier.fillMaxWidth()) { Text("حفظ الملاحظة") }
         message?.let { Text(it) }
     }
+}
+
+private fun <T> hubCall(config: HubConfig, onDone: (MirrorResult<T>) -> Unit, call: (OwnerReadClient) -> MirrorResult<T>) {
+    val main = android.os.Handler(android.os.Looper.getMainLooper())
+    Thread {
+        val r = runCatching { call(OwnerReadClient(AndroidHubTransport())) }.getOrElse { MirrorResult.Retry("error") }
+        main.post { onDone(r) }
+    }.start()
+}
+
+private fun hubMessage(r: MirrorResult<*>): String = when (r) {
+    MirrorResult.NotAvailable -> "هذا المركز لا يدعم هذه الشاشة بعد (يحتاج تحديث المركز)."
+    MirrorResult.AuthBlocked -> "رفض المركز رمز المالك."
+    is MirrorResult.Retry -> "تعذر الاتصال بالمركز. حاول لاحقًا."
+    is MirrorResult.Ok -> ""
+    else -> "رد المركز غير مفهوم، فلم يُعرض."
+}
+
+@Composable
+internal fun LicenceHistoryScreen(config: HubConfig) {
+    var status by remember { mutableStateOf<String?>(null) }
+    var rows by remember { mutableStateOf<List<HistoryRow>>(emptyList()) }
+    var next by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var reload by remember { mutableStateOf(0) }
+    var more by remember { mutableStateOf<String?>(null) }
+    DisposableEffect(status, reload, more, config.baseUrl) {
+        loading = true
+        val alive = AtomicBoolean(true)
+        val cursor = more
+        hubCall(config, { r ->
+            if (alive.get()) {
+                loading = false
+                if (r is MirrorResult.Ok) {
+                    rows = if (cursor == null) r.value.rows else rows + r.value.rows
+                    next = r.value.nextAfter
+                    error = null
+                } else { error = hubMessage(r) }
+            }
+        }) { it.history(config, status, cursor, 50) }
+        onDispose { alive.set(false) }
+    }
+    Text("كل طلبات الترخيص المحفوظة في المركز بكل حالاتها. عرض فقط؛ لا كود ولا مرجع دفع ولا اسم محل.")
+    listOf<Pair<String?, String>>(null to "الكل", "pending" to "معلّقة", "issued" to "صدر كودها", "delivered" to "سُلّمت", "refused" to "مرفوضة", "expired" to "منتهية").forEach { (key, label) ->
+        OutlinedButton(onClick = { status = key; more = null; rows = emptyList(); reload += 1 }, modifier = Modifier.fillMaxWidth()) { Text((if (status == key) "✓ " else "") + label) }
+    }
+    error?.let { Text(it) }
+    if (loading && rows.isEmpty()) Text("جارٍ التحميل.")
+    if (!loading && rows.isEmpty() && error == null) Text("لا توجد طلبات.")
+    val fmt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.US).apply { timeZone = java.util.TimeZone.getTimeZone("Africa/Cairo") }
+    rows.forEach { r ->
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(r.product + " · " + kindTitle(r.kind), fontWeight = FontWeight.Bold)
+                Text("الحالة: " + r.status + (r.ownerDecision?.let { " · قرارك: " + decisionLabel(it) } ?: ""))
+                Text("الجهاز: " + r.device + " · " + fmt.format(Date(r.createdAt * 1000)), style = MaterialTheme.typography.bodySmall)
+            }
+        }
+    }
+    next?.let { cursor -> OutlinedButton(enabled = !loading, onClick = { more = cursor }, modifier = Modifier.fillMaxWidth()) { Text("المزيد") } }
+}
+
+@Composable
+internal fun InstallsScreen(config: HubConfig) {
+    var ids by remember { mutableStateOf<List<String>>(emptyList()) }
+    var next by remember { mutableStateOf<String?>(null) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var loading by remember { mutableStateOf(true) }
+    var after by remember { mutableStateOf<String?>(null) }
+    DisposableEffect(after, config.baseUrl) {
+        loading = true
+        val alive = AtomicBoolean(true)
+        val cursor = after
+        hubCall(config, { r ->
+            if (alive.get()) {
+                loading = false
+                if (r is MirrorResult.Ok) { ids = if (cursor == null) r.value.ids else ids + r.value.ids; next = r.value.nextAfterId; error = null } else error = hubMessage(r)
+            }
+        }) { it.installs(config, cursor, 100) }
+        onDispose { alive.set(false) }
+    }
+    Text("التثبيتات المسجّلة في المركز: معرّفات فقط. لا يُعرض أي رمز أو بيان عن العملاء، ولا يُغيَّر شيء من هنا.")
+    error?.let { Text(it) }
+    if (loading && ids.isEmpty()) Text("جارٍ التحميل.")
+    if (!loading && ids.isEmpty() && error == null) Text("لا توجد تثبيتات مسجّلة.")
+    if (ids.isNotEmpty()) Text("المعروض: ${ids.size}" + if (next != null) " (يوجد المزيد)" else "", fontWeight = FontWeight.Bold)
+    ids.forEach { Text(it.take(8) + "…" + it.takeLast(4)) }
+    next?.let { cursor -> OutlinedButton(enabled = !loading, onClick = { after = cursor }, modifier = Modifier.fillMaxWidth()) { Text("المزيد") } }
+    Text("هذه قائمة التسجيل التي أرسلها مركز التحكم فقط، وليست سجل النشاط الكامل.", style = MaterialTheme.typography.bodySmall)
 }
