@@ -153,7 +153,7 @@ Verification actually run: `NavigationTest` (18 tests) with the standalone Kotli
 
 ## M08 to M15 — cores, screens and the acceptance record (2026-10-11)
 
-The branch now has its own CI (`.github/workflows/android.yml`: JDK 17, Android SDK 35, Gradle 8.11.1, `:app:testDebugUnitTest :app:assembleDebug`). Run 1 (`1e80d54`, M05 to M07) and run 2 (`ab3c753`, lock, appearance, activity, backup, home summary) finished green on GitHub Actions; runs 3 and 4 failed on two stale tests (the old migration test still expected version 3; a delete test ran on empty tables), which were fixed; run 5 (`ad7e` series, 199 unit tests including a real version-2 file migrated through 3 to 4, and the new screens) and run 6 finished green. A green build is **not** a test on a handset: nothing below has been installed, opened on a phone or reviewed by a second person.
+The branch now has its own CI (`.github/workflows/android.yml`: JDK 17, Android SDK 35, Gradle 8.11.1, `:app:testDebugUnitTest :app:assembleDebug`). Run 1 (`1e80d54`, M05 to M07) and run 2 (`ab3c753`, lock, appearance, activity, backup, home summary) finished green on GitHub Actions; runs 3 and 4 failed on two stale tests (the old migration test still expected version 3; a delete test ran on empty tables), which were fixed; run 5 (199 unit tests including a real version-2 file migrated through 3 to 4, and the new screens) finished green. The later work (biometric prompt, restore, reminders, Cairo font) took four more runs to fix: an experimental-API opt-in, the build's old ban on `androidx.biometric` in the APK (now lifted because the owner approved it), the restore verifying a non-database file, and the restore's dispatch pause needing the profile's revision rules; run `38154711697` is green with all of it. A green build is **not** a test on a handset: nothing below has been installed, opened on a phone or reviewed by a second person.
 
 | # | Pure logic (JVM tests) | What the owner sees now | Not done |
 |---|---|---|---|
@@ -170,7 +170,7 @@ Also on screen: **More > Backup** writes a sealed archive to a file the owner pi
 
 Safety decisions taken without asking the owner, to be confirmed: no new Android permission and no new dependency were added; the lock uses the phone's screen lock instead of a biometric prompt for that reason; the audit mirror and the history screens only talk to the hub when the owner presses a button or opens the page, and only when a hub is saved.
 
-Housekeeping: Room writes `app/schemas/.../4.json` during every build (the tests read it); it is not committed yet because it could only be produced on the CI runner. Commit it from the first local Gradle run.
+Housekeeping: Room writes `app/schemas/.../4.json` during every build; the CI workflow now commits it when it changes (done once, `41a9750`).
 
 Still not run anywhere: an emulator or handset, TalkBack, a Worker deploy, an independent review, a migration test from a real version 3 file (the test compares the migration's tables with the ones Room creates), and any drill of lost phone, restore or kill during backup.
 
