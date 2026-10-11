@@ -51,12 +51,6 @@ jobs:
                       if n >= 40: raise SystemExit
           print('failed tests listed:', n)
           PY
-      - name: Print the exported Room schema (one-time, to commit it)
-        if: always()
-        shell: bash
-        run: |
-          f=app/schemas/com.pixelplus.owner.data.db.OwnerDatabase/4.json
-          if [ -f "$f" ]; then base64 -w 3000 "$f" | sed 's/^/SCHEMA4 /'; fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
