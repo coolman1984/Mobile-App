@@ -93,7 +93,18 @@ ENTRIES = [
     ("unlock", "فتح القفل", "Unlock"),
     ("unlock_bilingual", "فتح القفل / Unlock", "Unlock"),
     ("biometric_subtitle", "افتح القفل للمتابعة", "Unlock to continue"),
-    ("appearance_intro", "اختر شكل التطبيق. يُحفظ على هذا الههاتف فقط.", "Choose how the app looks. Saved on this phone only."),
+    ("appearance_intro", "اختر شكل التطبيق. يُحفظ على هذا الهاتف فقط.", "Choose how the app looks. Saved on this phone only."),
+    ("book_reminder_invalid", "وقت التذكير غير صالح. اختر وقتًا لاحقًا.", "Reminder time is not valid. Pick a later time."),
+    ("unknown_value", "غير معروف", "Unknown"),
+    ("demo_status_pending", "في الانتظار", "Pending"),
+    ("demo_status_reviewed", "تمت المراجعة التجريبية", "Demo review done"),
+    ("demo_status_rejected", "مرفوض تجريبيًا", "Demo rejected"),
+    ("demo_alert_al1_title", "طلب تفعيل جديد", "New activation request"),
+    ("demo_alert_al1_detail", "جهاز تجريبي ينتظر المراجعة", "A demo device is waiting for review"),
+    ("demo_alert_al2_title", "تنبيه نسخة احتياطية", "Backup alert"),
+    ("demo_alert_al2_detail", "محاكاة تنبيه، وليس عطلًا حقيقيًا", "Simulated alert, not a real fault"),
+    ("demo_alert_al3_title", "تجديد قريب", "Renewal soon"),
+    ("demo_alert_al3_detail", "محاكاة انتهاء اشتراك", "Simulated subscription expiry"),
     ("theme_mode", "الوضع", "Mode"),
     ("theme_system", "حسب الهاتف", "Match phone"),
     ("theme_light", "فاتح", "Light"),
@@ -346,7 +357,11 @@ ENTRIES = [
 ]
 
 PLURALS = [
+    ("followup_due_notification", "zero", "%d متابعات حان موعدها", None),
     ("followup_due_notification", "one", "%d متابعة حان موعدها", "%d follow-up is due"),
+    ("followup_due_notification", "two", "%d متابعتان حان موعدهما", None),
+    ("followup_due_notification", "few", "%d متابعات حان موعدها", None),
+    ("followup_due_notification", "many", "%d متابعة حان موعدها", None),
     ("followup_due_notification", "other", "%d متابعات حان موعدها", "%d follow-ups are due"),
 ]
 
@@ -361,7 +376,10 @@ def write_xml(path: Path, lang: str):
     # plurals
     by_name = {}
     for name, qty, ar, en in PLURALS:
-        by_name.setdefault(name, []).append((qty, ar if lang == "ar" else en))
+        text = ar if lang == "ar" else en
+        if text is None:
+            continue
+        by_name.setdefault(name, []).append((qty, text))
     for name, items in by_name.items():
         lines.append(f'    <plurals name="{name}">')
         for qty, text in items:

@@ -542,14 +542,14 @@ fun presentAlerts(
         loading = loading && events == null,
         errorCode = errorCode,
         cards = events.orEmpty().map { eventCard(it) },
-        pullNote = if (config.pullToken.isBlank()) com.pixelplus.owner.ui.text(context, "pull_token_missing") else null,
+        pullNote = if (config.pullToken.isBlank()) context.text("pull_token_missing") else null,
         pullSummary = pull?.let { pullSummaryText(context, it) },
         pullError = pullError
     )
 }
 
 fun pullSummaryText(context: android.content.Context, summary: PullSummary): String =
-    com.pixelplus.owner.ui.text(context, "pull_summary", summary.shown, summary.known, summary.unregistered, summary.bytes)
+    context.text("pull_summary", summary.shown, summary.known, summary.unregistered, summary.bytes)
 
 fun homeLines(
     context: android.content.Context,
@@ -558,7 +558,7 @@ fun homeLines(
     requests: List<LicenceRequest>?,
     events: List<LicenceEvent>?,
 ): List<HomeLine> {
-    val t = { key: String -> com.pixelplus.owner.ui.text(context, key) }
+    val t = { key: String -> context.text(key) }
     if (!config.isLive) {
         return listOf(
             HomeLine(t("home_companies"), demo.companies.size.toString()),
@@ -578,7 +578,7 @@ fun presentCompanies(context: android.content.Context, config: HubConfig, demo: 
     return CompaniesPresentation(
         demo = false,
         names = requests.orEmpty().map { it.product }.distinct(),
-        note = com.pixelplus.owner.ui.text(context, "hub_products_note"),
+        note = context.text("hub_products_note"),
     )
 }
 
@@ -606,7 +606,7 @@ fun failureKey(code: String?): String? = when (code) {
 
 fun failureMessage(context: android.content.Context, code: String?): String {
     val key = failureKey(code) ?: return ""
-    return com.pixelplus.owner.ui.text(context, key)
+    return context.text(key)
 }
 
 private fun rememberIds(current: List<String>, previous: List<String>, cap: Int): List<String> {
@@ -623,12 +623,18 @@ private fun rememberIds(current: List<String>, previous: List<String>, cap: Int)
     return out.toList()
 }
 
+private fun demoLicenceKind(kind: LicenceKind): String = when (kind) {
+    LicenceKind.TRIAL -> "trial"
+    LicenceKind.MONTHLY -> "monthly"
+    LicenceKind.PERPETUAL -> "permanent"
+}
+
 private fun demoCard(req: ActivationRequest) = RequestCard(
     id = req.id,
     title = req.id + " • " + req.product,
-    detail = req.kind.title + "\t" + req.deviceRef,
-    status = req.status.title,
-    kind = req.kind.name,
+    detail = demoLicenceKind(req.kind) + "\t" + req.deviceRef,
+    status = req.status.name,
+    kind = demoLicenceKind(req.kind),
     pending = req.status == RequestStatus.PENDING,
     canApprove = false,
     canReject = false,

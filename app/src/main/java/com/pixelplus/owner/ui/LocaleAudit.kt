@@ -17,7 +17,7 @@ object LocaleAudit {
                 try {
                     val workspace = db.openHelper.readableDatabase.query(
                         "SELECT id FROM workspaces ORDER BY createdAtUtcMs LIMIT 1",
-                    ).use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: return
+                    ).use { c -> if (c.moveToFirst()) c.getString(0) else null } ?: return@runCatching
                     val now = System.currentTimeMillis()
                     db.runInTransaction {
                         AuditWriter(db).append(

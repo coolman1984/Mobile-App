@@ -1,8 +1,10 @@
 package com.pixelplus.owner.sync
 
 import android.content.Context
+import android.content.res.Configuration
 import com.pixelplus.owner.ui.bothLines
 import com.pixelplus.owner.ui.text
+import java.util.Locale
 
 /**
  * Both languages are shown. The phone language does not hide one of them.
@@ -41,8 +43,16 @@ object SyncCopy {
         return if (age == null) {
             context.bothLines("sync_queue_waiting", waiting).display
         } else {
-            context.bothLines("sync_queue_oldest", waiting, age.display).display
+            queueOldestLine(context, waiting, age).display
         }
+    }
+
+    private fun queueOldestLine(context: Context, waiting: Int, age: BothLines): BothLines {
+        fun line(locale: Locale, agePhrase: String): String {
+            val cfg = Configuration(context.resources.configuration).apply { setLocale(locale) }
+            return context.createConfigurationContext(cfg).text("sync_queue_oldest", waiting, agePhrase)
+        }
+        return BothLines(line(Locale("ar"), age.arabic), line(Locale.ENGLISH), age.english))
     }
 
     private fun ageWords(context: Context, ageMs: Long): BothLines {

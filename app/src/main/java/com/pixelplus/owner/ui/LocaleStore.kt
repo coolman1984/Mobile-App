@@ -8,6 +8,8 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import java.util.concurrent.atomic.AtomicLong
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -20,18 +22,23 @@ class LocaleStore(private val context: Context) {
     private val dataStore = context.applicationContext.localeDataStore
     private val key = stringPreferencesKey("app_language")
 
-    fun read(): AppLanguage = runBlocking {
+    fun read(): AppLanguage = runBlocking(Dispatchers.IO) {
         dataStore.data.map { prefs -> AppLanguage.fromStorage(prefs[key]) }.first()
     }
 
     fun flow(): Flow<AppLanguage> = dataStore.data.map { prefs -> AppLanguage.fromStorage(prefs[key]) }
 
-    suspend fun save(language: AppLanguage) {
-        dataStore.edit { it[key] = language.storageValue }
+    suspend fun save(language: AppLanguage, ticket: Long? = null, latest: AtomicLong? = null) {
+        if (ticket != null && latest != null && latest.get() != ticket) return
+        dataStore.edit { prefs ->
+            if (ticket != null && latest != null && latest.get() != ticket) return@edit
+            prefs[key] = language.storageValue
+        }
+        if (ticket != null && latest != null && latest.get() != ticket) return
         apply(language)
     }
 
-    fun apply(language: AppLanguage = read()) {
+    fun apply(language: AppLanguage) {
         val locales = when (language) {
             AppLanguage.ARABIC -> LocaleListCompat.forLanguageTags("ar")
             AppLanguage.ENGLISH -> LocaleListCompat.forLanguageTags("en")
@@ -43,7 +50,12 @@ class LocaleStore(private val context: Context) {
     companion object {
         /** Called from [com.pixelplus.owner.OwnerApplication] before the first activity. */
         fun warmStart(context: Context) {
-            LocaleStore(context).apply()
+            runBlocking(Dispatchers.IO) {
+                val store = LocaleStore(context)
+                val prefs = store.dataStore.data.first()
+                if (!prefs.contains(store.key)) return@runBlocking
+                store.apply(AppLanguage.fromStorage(prefs[store.key]))
+            }
         }
     }
 }

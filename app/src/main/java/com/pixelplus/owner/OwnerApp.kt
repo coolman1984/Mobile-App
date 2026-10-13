@@ -61,10 +61,12 @@ import com.pixelplus.owner.ui.hubAlertDetail
 import com.pixelplus.owner.ui.labelOf
 import com.pixelplus.owner.ui.liveRequestDetail
 import com.pixelplus.owner.ui.localizedHubEvent
+import com.pixelplus.owner.ui.localizedDemoRequestStatus
 import com.pixelplus.owner.ui.localizedLicenceKind
 import com.pixelplus.owner.ui.localizedOwnerDecision
 import com.pixelplus.owner.ui.text
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -105,6 +107,7 @@ fun OwnerApp(prefs: OwnerPrefs, reauthenticate: ((Boolean) -> Unit) -> Unit = { 
     var cachedAt by remember { mutableStateOf<Long?>(null) }
     var savingSettings by remember { mutableStateOf(false) }
     val localeStore = remember { LocaleStore(context.applicationContext) }
+    val languageSaveTicket = remember { AtomicLong(0) }
     var appLanguage by remember { mutableStateOf(localeStore.read()) }
 
     DisposableEffect(config.isLive) {
@@ -332,9 +335,12 @@ fun OwnerApp(prefs: OwnerPrefs, reauthenticate: ((Boolean) -> Unit) -> Unit = { 
                         "settings_language" -> LanguageScreen(appLanguage) { picked ->
                             val before = appLanguage
                             appLanguage = picked
+                            val ticket = languageSaveTicket.incrementAndGet()
                             CoroutineScope(Dispatchers.IO).launch {
-                                localeStore.save(picked)
-                                LocaleAudit.logChange(context.applicationContext, before, picked)
+                                localeStore.save(picked, ticket, languageSaveTicket)
+                                if (languageSaveTicket.get() == ticket) {
+                                    LocaleAudit.logChange(context.applicationContext, before, picked)
+                                }
                             }
                         }
                         "settings_lock" -> LockSettingsScreen(lockPrefs, deviceIsSecure(context)) { lockPrefs = it; prefs.saveLock(it) }
@@ -482,14 +488,18 @@ private fun RequestsScreen(
                 Text(
                     if (card.demo) {
                         val parts = card.detail.split("\t", limit = 2)
-                        context.text("request_detail_kind_demo", parts.first(), parts.getOrElse(1) { "" })
+                        context.text(
+                            "request_detail_kind_demo",
+                            context.localizedLicenceKind(parts.first()),
+                            parts.getOrElse(1) { "" },
+                        )
                     } else {
                         context.liveRequestDetail(card)
                     },
                 )
                 Text(
                     if (card.demo) {
-                        labelOf("status_prefix", card.status)
+                        labelOf("status_prefix", context.localizedDemoRequestStatus(card.status))
                     } else {
                         labelOf("status_prefix", context.localizedOwnerDecision(card.ownerDecision))
                     },
@@ -538,8 +548,8 @@ private fun AlertsScreen(view: AlertsPresentation, onRead: (String) -> Unit, onR
     view.cards.forEach { card ->
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (card.demo) card.title else context.localizedHubEvent(card.eventKind), fontWeight = FontWeight.Bold)
-                Text(if (card.demo) card.detail else context.hubAlertDetail(card))
+                Text(if (card.demo) labelOf(card.title) else context.localizedHubEvent(card.eventKind), fontWeight = FontWeight.Bold)
+                Text(if (card.demo) labelOf(card.detail) else context.hubAlertDetail(card))
                 if (card.demo) {
                     OutlinedButton(onClick = { onRead(card.id) }, enabled = !card.read) {
                         Text(if (card.read) labelOf("alert_read") else labelOf("mark_read"))
@@ -576,6 +586,7 @@ private fun SettingsScreen(
     onClear: () -> Unit,
     onTest: (HubConfig) -> Unit
 ) {
+    val context = LocalContext.current
     var url by remember(saved.baseUrl) { mutableStateOf(saved.baseUrl) }
     var owner by remember { mutableStateOf("") }
     var pull by remember { mutableStateOf("") }
@@ -636,7 +647,7 @@ private fun SettingsScreen(
         enabled = !testing && !saving,
         onClick = {
             when (val plan = planSave(saved, url, owner, pull, clearPull)) {
-                is SavePlan.Reject -> formNote = failureMessage(LocalContext.current, plan.reason)
+                is SavePlan.Reject -> formNote = failureMessage(context, plan.reason)
                 is SavePlan.Accept -> {
                     formNote = null
                     onTest(plan.config)
@@ -649,7 +660,7 @@ private fun SettingsScreen(
         enabled = !saving && !testing,
         onClick = {
             when (val plan = planSave(saved, url, owner, pull, clearPull)) {
-                is SavePlan.Reject -> formNote = failureMessage(LocalContext.current, plan.reason)
+                is SavePlan.Reject -> formNote = failureMessage(context, plan.reason)
                 is SavePlan.Accept -> {
                     onSave(plan.config)
                     formNote = null

@@ -89,7 +89,18 @@
     <string name="unlock">فتح القفل</string>
     <string name="unlock_bilingual">فتح القفل / Unlock</string>
     <string name="biometric_subtitle">افتح القفل للمتابعة</string>
-    <string name="appearance_intro">اختر شكل التطبيق. يُحفظ على هذا الههاتف فقط.</string>
+    <string name="appearance_intro">اختر شكل التطبيق. يُحفظ على هذا الهاتف فقط.</string>
+    <string name="book_reminder_invalid">وقت التذكير غير صالح. اختر وقتًا لاحقًا.</string>
+    <string name="unknown_value">غير معروف</string>
+    <string name="demo_status_pending">في الانتظار</string>
+    <string name="demo_status_reviewed">تمت المراجعة التجريبية</string>
+    <string name="demo_status_rejected">مرفوض تجريبيًا</string>
+    <string name="demo_alert_al1_title">طلب تفعيل جديد</string>
+    <string name="demo_alert_al1_detail">جهاز تجريبي ينتظر المراجعة</string>
+    <string name="demo_alert_al2_title">تنبيه نسخة احتياطية</string>
+    <string name="demo_alert_al2_detail">محاكاة تنبيه، وليس عطلًا حقيقيًا</string>
+    <string name="demo_alert_al3_title">تجديد قريب</string>
+    <string name="demo_alert_al3_detail">محاكاة انتهاء اشتراك</string>
     <string name="theme_mode">الوضع</string>
     <string name="theme_system">حسب الهاتف</string>
     <string name="theme_light">فاتح</string>
@@ -340,7 +351,11 @@
     <string name="notice_migrate">النسخة أقدم؛ ستُحدَّث بياناتها تلقائيًا.</string>
     <string name="selected_prefix">✓ </string>
     <plurals name="followup_due_notification">
+        <item quantity="zero">%d متابعات حان موعدها</item>
         <item quantity="one">%d متابعة حان موعدها</item>
+        <item quantity="two">%d متابعتان حان موعدهما</item>
+        <item quantity="few">%d متابعات حان موعدها</item>
+        <item quantity="many">%d متابعة حان موعدها</item>
         <item quantity="other">%d متابعات حان موعدها</item>
     </plurals>
 </resources>

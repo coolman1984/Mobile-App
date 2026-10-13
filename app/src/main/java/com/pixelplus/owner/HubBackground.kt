@@ -25,6 +25,7 @@ import com.pixelplus.owner.sync.HubSync
 import com.pixelplus.owner.sync.SyncStore
 import com.pixelplus.owner.sync.stableEventKey
 import com.pixelplus.owner.sync.stableRequestKey
+import com.pixelplus.owner.ui.text
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -158,8 +159,8 @@ object HubNotifications {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
         if (!manager.areNotificationsEnabled()) return false
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            val channel = NotificationChannel(CHANNEL_ID, com.pixelplus.owner.ui.text(context, "notification_channel_name"), NotificationManager.IMPORTANCE_DEFAULT)
-            channel.description = com.pixelplus.owner.ui.text(context, "notification_channel_desc")
+            val channel = NotificationChannel(CHANNEL_ID, context.text("notification_channel_name"), NotificationManager.IMPORTANCE_DEFAULT)
+            channel.description = context.text("notification_channel_desc")
             manager.createNotificationChannel(channel)
         }
         val open = Intent(context, MainActivity::class.java).apply {
@@ -173,7 +174,7 @@ object HubNotifications {
         )
         val notification = Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle(com.pixelplus.owner.ui.text(context, "brand_short"))
+            .setContentTitle(context.text("brand_short"))
             .setContentText(text)
             .setAutoCancel(true)
             .setContentIntent(pending)

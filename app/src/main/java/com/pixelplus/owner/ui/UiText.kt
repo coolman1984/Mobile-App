@@ -75,27 +75,39 @@ fun Context.stringId(key: String): Int = resources.getIdentifier(key, "string", 
 @PluralsRes
 fun Context.pluralId(key: String): Int = resources.getIdentifier(key, "plurals", packageName)
 
-fun Context.localizedLicenceKind(kind: String): String = text(
-    when (kind) {
+fun Context.localizedDemoRequestStatus(status: String): String {
+    val key = when (status) {
+        "PENDING" -> "demo_status_pending"
+        "REVIEWED" -> "demo_status_reviewed"
+        "REJECTED" -> "demo_status_rejected"
+        else -> return status
+    }
+    return text(key)
+}
+
+fun Context.localizedLicenceKind(kind: String): String {
+    val key = when (kind) {
         "trial" -> "licence_kind_trial"
         "monthly" -> "licence_kind_monthly"
         "permanent" -> "licence_kind_permanent"
         else -> return kind
-    },
-)
+    }
+    return text(key)
+}
 
-fun Context.localizedOwnerDecision(decision: String?): String = text(
-    when (decision) {
+fun Context.localizedOwnerDecision(decision: String?): String {
+    val key = when (decision) {
         null, "" -> "licence_decision_pending"
         "approved" -> "licence_decision_approved"
         "expired" -> "licence_decision_expired"
         "denied" -> "licence_decision_denied"
         else -> return decision
-    },
-)
+    }
+    return text(key)
+}
 
-fun Context.localizedHubEvent(event: String): String = text(
-    when (event) {
+fun Context.localizedHubEvent(event: String): String {
+    val key = when (event) {
         "created" -> "hub_event_created"
         "approved" -> "hub_event_approved"
         "refused" -> "hub_event_refused"
@@ -105,8 +117,9 @@ fun Context.localizedHubEvent(event: String): String = text(
         "tg_refused" -> "hub_event_tg_refused"
         "tg_stale" -> "hub_event_tg_stale"
         else -> return event
-    },
-)
+    }
+    return text(key)
+}
 
 fun Context.mirrorResultMessage(result: AuditMirrorRunner.Result): String = when (result) {
     is AuditMirrorRunner.Result.Sent ->

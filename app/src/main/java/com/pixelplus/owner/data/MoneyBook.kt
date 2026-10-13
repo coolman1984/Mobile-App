@@ -124,6 +124,7 @@ object FollowUpBook {
     }
 
     fun hide(context: Context, id: String): BookResult {
+        val app = context.applicationContext
         val result = CustomerBook.withBook(context) { db, _ -> db.records().softDeleteFollowUp(id, System.currentTimeMillis()) }
         return if (result == RecordResult.Applied) BookResult.Ok else app.refused("book_no_change")
     }

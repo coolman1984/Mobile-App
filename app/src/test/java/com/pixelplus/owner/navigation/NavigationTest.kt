@@ -158,6 +158,7 @@ class NavigationTest {
         assertTrue(items.none { it.hasId })
         assertTrue(items.all { it.root == RootTab.MORE })
         assertTrue("settings" in items.map { it.id } && "licences" in items.map { it.id })
+        assertTrue("settings_language" in items.map { it.id })
     }
 
     // ---- bilingual resources ----
@@ -179,6 +180,37 @@ class NavigationTest {
         return resDir(dir).listFiles()?.filter { it.extension == "xml" }?.flatMap { rx.findAll(it.readText()).map { it.groupValues[1] } }?.toSet() ?: emptySet()
     }
 
+    private fun plurals(dir: String): Map<String, Map<String, String>> {
+        val nameRx = Regex("""<plurals name="([a-z0-9_]+)">([\s\S]*?)</plurals>""")
+        val itemRx = Regex("""<item quantity="([a-z]+)">([^<]*)</item>""")
+        val out = linkedMapOf<String, MutableMap<String, String>>()
+        resDir(dir).listFiles()?.filter { it.extension == "xml" }?.forEach { file ->
+            nameRx.findAll(file.readText()).forEach { block ->
+                val items = linkedMapOf<String, String>()
+                itemRx.findAll(block.groupValues[2]).forEach { item ->
+                    items[item.groupValues[1]] = item.groupValues[2]
+                }
+                out[block.groupValues[1]] = items
+            }
+        }
+        return out
+    }
+
+    private fun placeholders(value: String): List<String> =
+        Regex("%\\d?\\$?[sd]").findAll(value).map { it.value }.toList()
+
+    private val defaultStringsMayBeLatin = setOf(
+        "language_english",
+        "lock_subtitle_en",
+        "activity_chain",
+        "hub_url_placeholder",
+        "selected_prefix",
+    )
+
+    private val arabicPluralQuantities = mapOf(
+        "followup_due_notification" to setOf("zero", "one", "two", "few", "many", "other"),
+    )
+
     @Test fun arabicAndEnglishHaveTheSameKeysAndEveryLabelExistsInBoth() {
         val ar = strings("values")
         val en = strings("values-en")
@@ -198,10 +230,28 @@ class NavigationTest {
     @Test fun arabicIsArabicEnglishIsNotAndNoStringKeepsAPlaceholderTheOtherLacks() {
         val ar = strings("values")
         val en = strings("values-en")
+        val pluralAr = plurals("values")
+        val pluralEn = plurals("values-en")
         val arabic = Regex("[؀-ۿ]")
-        for ((k, v) in ar) assertTrue("ar $k", arabic.containsMatchIn(v))
+        for ((k, v) in ar) {
+            if (k in defaultStringsMayBeLatin) continue
+            assertTrue("ar $k", arabic.containsMatchIn(v))
+        }
         for ((k, v) in en) assertFalse("en $k", arabic.containsMatchIn(v))
-        for (k in ar.keys) assertEquals(k, Regex("%\\d?\\$?[sd]").findAll(ar.getValue(k)).count(), Regex("%\\d?\\$?[sd]").findAll(en.getValue(k)).count())
+        for (k in ar.keys) {
+            assertEquals("string placeholders $k", placeholders(ar.getValue(k)), placeholders(en.getValue(k)))
+        }
+        assertEquals(pluralAr.keys, pluralEn.keys)
+        for (name in pluralAr.keys) {
+            val arQty = pluralAr.getValue(name)
+            val enQty = pluralEn.getValue(name)
+            for (qty in enQty.keys) {
+                assertEquals("plural $name $qty", placeholders(arQty.getValue(qty)), placeholders(enQty.getValue(qty)))
+            }
+            arabicPluralQuantities[name]?.let { required ->
+                assertEquals("ar plural quantities $name", required, arQty.keys)
+            }
+        }
         assertFalse(en.values.any { it.contains("'") && !it.contains("\\'") })
     }
 

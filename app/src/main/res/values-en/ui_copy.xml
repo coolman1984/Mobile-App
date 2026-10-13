@@ -90,6 +90,17 @@
     <string name="unlock_bilingual">Unlock</string>
     <string name="biometric_subtitle">Unlock to continue</string>
     <string name="appearance_intro">Choose how the app looks. Saved on this phone only.</string>
+    <string name="book_reminder_invalid">Reminder time is not valid. Pick a later time.</string>
+    <string name="unknown_value">Unknown</string>
+    <string name="demo_status_pending">Pending</string>
+    <string name="demo_status_reviewed">Demo review done</string>
+    <string name="demo_status_rejected">Demo rejected</string>
+    <string name="demo_alert_al1_title">New activation request</string>
+    <string name="demo_alert_al1_detail">A demo device is waiting for review</string>
+    <string name="demo_alert_al2_title">Backup alert</string>
+    <string name="demo_alert_al2_detail">Simulated alert, not a real fault</string>
+    <string name="demo_alert_al3_title">Renewal soon</string>
+    <string name="demo_alert_al3_detail">Simulated subscription expiry</string>
     <string name="theme_mode">Mode</string>
     <string name="theme_system">Match phone</string>
     <string name="theme_light">Light</string>
