@@ -52,7 +52,7 @@ object SyncCopy {
             val cfg = Configuration(context.resources.configuration).apply { setLocale(locale) }
             return context.createConfigurationContext(cfg).text("sync_queue_oldest", waiting, agePhrase)
         }
-        return BothLines(line(Locale("ar"), age.arabic), line(Locale.ENGLISH), age.english))
+        return BothLines(line(Locale("ar"), age.arabic), line(Locale.ENGLISH, age.english))
     }
 
     private fun ageWords(context: Context, ageMs: Long): BothLines {
