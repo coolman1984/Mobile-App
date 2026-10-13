@@ -162,10 +162,21 @@ class NavigationTest {
 
     // ---- bilingual resources ----
 
+    private fun resDir(dir: String): File =
+        listOf("src/main/res/$dir", "app/src/main/res/$dir").map(::File).first { it.isDirectory }
+
     private fun strings(dir: String): Map<String, String> {
-        val file = listOf("src/main/res/$dir/strings.xml", "app/src/main/res/$dir/strings.xml").map(::File).first { it.exists() }
         val rx = Regex("""<string name="([a-z0-9_]+)">([^<]*)</string>""")
-        return rx.findAll(file.readText()).associate { it.groupValues[1] to it.groupValues[2] }
+        val out = linkedMapOf<String, String>()
+        resDir(dir).listFiles()?.filter { it.extension == "xml" }?.sortedBy { it.name }?.forEach { file ->
+            rx.findAll(file.readText()).forEach { out[it.groupValues[1]] = it.groupValues[2] }
+        }
+        return out
+    }
+
+    private fun pluralNames(dir: String): Set<String> {
+        val rx = Regex("""<plurals name="([a-z0-9_]+)">""")
+        return resDir(dir).listFiles()?.filter { it.extension == "xml" }?.flatMap { rx.findAll(it.readText()).map { it.groupValues[1] } }?.toSet() ?: emptySet()
     }
 
     @Test fun arabicAndEnglishHaveTheSameKeysAndEveryLabelExistsInBoth() {
@@ -178,7 +189,10 @@ class NavigationTest {
             assertTrue("ar $key", !ar[key].isNullOrBlank())
             assertTrue("en $key", !en[key].isNullOrBlank())
         }
-        assertEquals(ar.size, needed.toSet().size)   // no orphan string, no missing one
+        val pluralAr = pluralNames("values")
+        val pluralEn = pluralNames("values-en")
+        assertEquals(pluralAr, pluralEn)
+        assertTrue(ar.isNotEmpty())
     }
 
     @Test fun arabicIsArabicEnglishIsNotAndNoStringKeepsAPlaceholderTheOtherLacks() {

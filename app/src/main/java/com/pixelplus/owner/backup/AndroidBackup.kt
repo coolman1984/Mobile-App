@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Build
 import com.pixelplus.owner.audit.ActivityReader
 import com.pixelplus.owner.data.db.OwnerDatabase
+import com.pixelplus.owner.ui.TextKey
 import java.io.File
 
 /**
@@ -20,13 +21,13 @@ object AndroidBackup {
 
     sealed class Result {
         data class Done(val bytes: Int) : Result()
-        data class Failed(val reasonAr: String, val reasonEn: String) : Result()
+        data class Failed(val reason: TextKey) : Result()
     }
 
     fun run(context: Context, target: Uri, nowUtcMs: Long, newId: () -> String): Result {
         val app = context.applicationContext
-        if (Build.VERSION.SDK_INT < MIN_SDK) return Result.Failed("النسخ الاحتياطي يحتاج أندرويد 11 أو أحدث.", "Backup needs Android 11 or newer.")
-        val sealer = KeystoreBackupKey.resolve() ?: return Result.Failed("مفتاح الحماية غير متاح على هذا الهاتف. لم يُكتب شيء.", "The protection key is not available on this phone. Nothing was written.")
+        if (Build.VERSION.SDK_INT < MIN_SDK) return Result.Failed(TextKey.of("backup_min_sdk"))
+        val sealer = KeystoreBackupKey.resolve() ?: return Result.Failed(TextKey.of("backup_key_unavailable"))
         val source = object : SnapshotSource {
             override fun <T> quiesced(block: (Snapshot) -> T): T = block(takeSnapshot(app))
         }
@@ -43,9 +44,11 @@ object AndroidBackup {
             when (val outcome = BackupCoordinator(source, sealer, sink, { nowUtcMs }, newId).run()) {
                 is BackupOutcome.Done -> Result.Done(outcome.sizeBytes)
                 is BackupOutcome.Failed -> when (outcome.stage) {
-                    Stage.SNAPSHOT -> Result.Failed("تعذر أخذ نسخة من قاعدة البيانات.", "Could not take a copy of the database.")
-                    Stage.SEAL -> Result.Failed(if (outcome.fault == BackupFault.TOO_LARGE) "النسخة أكبر من الحد المسموح (64 ميجابايت)." else "تعذر تشفير النسخة.", if (outcome.fault == BackupFault.TOO_LARGE) "The copy is larger than the allowed 64 MB." else "Could not seal the copy.")
-                    Stage.WRITE, Stage.COMMIT -> Result.Failed("تعذر الكتابة في الملف الذي اخترته.", "Could not write to the file you chose.")
+                    Stage.SNAPSHOT -> Result.Failed(TextKey.of("backup_snapshot_failed"))
+                    Stage.SEAL -> Result.Failed(
+                        if (outcome.fault == BackupFault.TOO_LARGE) TextKey.of("backup_too_large") else TextKey.of("backup_seal_failed"),
+                    )
+                    Stage.WRITE, Stage.COMMIT -> Result.Failed(TextKey.of("backup_write_failed"))
                 }
             }
         } finally {

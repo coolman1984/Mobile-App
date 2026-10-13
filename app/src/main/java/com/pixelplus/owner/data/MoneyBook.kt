@@ -12,6 +12,8 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
+import com.pixelplus.owner.ui.refused
+import com.pixelplus.owner.ui.text
 import java.util.UUID
 
 /**
@@ -40,7 +42,7 @@ object MoneyBook {
             val dao = db.ownerDao()
             val reversedIds = dao.recentPayments(workspace, 500).mapNotNull { it.reversalOfId }.toSet()
             val entries = dao.recentPayments(workspace, 100).map {
-                MoneyEntry(it.id, names[it.customerId] ?: "؟", it.amountMinor, it.currency, it.receivedAtUtcMs, it.reversalOfId != null, it.id in reversedIds)
+                MoneyEntry(it.id, names[it.customerId] ?: context.applicationContext.text("unknown_value"), it.amountMinor, it.currency, it.receivedAtUtcMs, it.reversalOfId != null, it.id in reversedIds)
             }
             val from = CairoClock.monthStartUtcMs(zoned.year, zoned.monthValue)
             val next = if (zoned.monthValue == 12) CairoClock.monthStartUtcMs(zoned.year + 1, 1) else CairoClock.monthStartUtcMs(zoned.year, zoned.monthValue + 1)
@@ -52,12 +54,13 @@ object MoneyBook {
     }
 
     fun post(context: Context, customerId: String, amountText: String, currencyRaw: String, reference: String): BookResult {
+        val app = context.applicationContext
         val currency = currencyRaw.trim().uppercase()
         val minor = Money.parse(amountText, currency)
-            ?: return BookResult.Refused("المبلغ أو العملة غير صحيحين.", "The amount or the currency is not valid.")
-        if (minor == 0L) return BookResult.Refused("المبلغ لا يمكن أن يكون صفرًا.", "The amount cannot be zero.")
-        if (reference.length > 120) return BookResult.Refused("المرجع طويل جدًا.", "The reference is too long.")
-        val sealer = ContactSeal.resolve() ?: return BookResult.Refused("تعذر تجهيز مفتاح الحماية. لم يُحفظ شيء.", "The protection key is not available. Nothing was saved.")
+            ?: return app.refused("book_amount_invalid")
+        if (minor == 0L) return app.refused("book_amount_zero")
+        if (reference.length > 120) return app.refused("book_reference_long")
+        val sealer = ContactSeal.resolve() ?: return app.refused("book_no_key")
         val now = System.currentTimeMillis()
         val result = CustomerBook.withBook(context) { db, workspace ->
             db.records().postPayment(
@@ -65,17 +68,18 @@ object MoneyBook {
                 reference.trim().takeIf { it.isNotEmpty() }?.let { sealer.seal(it.toByteArray(Charsets.UTF_8)) }, now,
             )
         }
-        return if (result == RecordResult.Applied) BookResult.Ok else BookResult.Refused("تعذر تسجيل الدفعة.", "Could not record the payment.")
+        return if (result == RecordResult.Applied) BookResult.Ok else app.refused("book_payment_failed")
     }
 
     fun reverse(context: Context, id: String): BookResult {
+        val app = context.applicationContext
         val result = CustomerBook.withBook(context) { db, _ ->
             db.records().reversePayment(id, UUID.randomUUID().toString(), UUID.randomUUID().toString(), System.currentTimeMillis())
         }
         return when (result) {
             RecordResult.Applied -> BookResult.Ok
-            RecordResult.Conflict -> BookResult.Refused("هذه الدفعة لها قيد عكسي بالفعل.", "This entry already has a reversal.")
-            else -> BookResult.Refused("تعذر تسجيل القيد العكسي.", "The reversing entry could not be recorded.")
+            RecordResult.Conflict -> app.refused("book_already_reversed")
+            else -> app.refused("book_reverse_failed")
         }
     }
 }
@@ -90,7 +94,7 @@ object FollowUpBook {
         return CustomerBook.withBook(context) { db, workspace ->
             db.ownerDao().activeFollowUps(workspace).map {
                 FollowUpItem(
-                    it.id, runCatching { String(sealer.open(it.encryptedTitle), Charsets.UTF_8) }.getOrDefault("؟"),
+                    it.id, runCatching { String(sealer.open(it.encryptedTitle), Charsets.UTF_8) }.getOrDefault(context.applicationContext.text("unknown_value")),
                     it.customerId?.let(names::get), it.dueAtUtcMs, it.reminderOffsetMin, it.completedAtUtcMs != null,
                 )
             }
@@ -99,27 +103,29 @@ object FollowUpBook {
 
     /** [dateText] is `yyyy-MM-dd` and [timeText] is `HH:mm`, both in Cairo time. A skipped time moves forward and is reported. */
     fun add(context: Context, title: String, customerId: String?, dateText: String, timeText: String, offsetMin: Int): BookResult {
+        val app = context.applicationContext
         val clean = title.trim()
-        if (clean.isEmpty() || clean.length > 120) return BookResult.Refused("اكتب عنوانًا من 1 إلى 120 حرفًا.", "Enter a title of 1 to 120 characters.")
+        if (clean.isEmpty() || clean.length > 120) return app.refused("book_title_invalid")
         val date = runCatching { LocalDate.parse(ArabicDigits.ascii(dateText).trim()) }.getOrNull()
         val time = runCatching { LocalTime.parse(ArabicDigits.ascii(timeText).trim()) }.getOrNull()
-        if (date == null || time == null) return BookResult.Refused("اكتب التاريخ مثل 2026-10-15 والوقت مثل 14:30.", "Write the date like 2026-10-15 and the time like 14:30.")
-        val when_ = FollowUps.schedule(LocalDateTime.of(date, time), offsetMin) ?: return BookResult.Refused("وقت التذكير غير صحيح.", "The reminder time is not valid.")
-        val sealer = ContactSeal.resolve() ?: return BookResult.Refused("تعذر تجهيز مفتاح الحماية. لم يُحفظ شيء.", "The protection key is not available. Nothing was saved.")
+        if (date == null || time == null) return app.refused("book_datetime_invalid")
+        val when_ = FollowUps.schedule(LocalDateTime.of(date, time), offsetMin) ?: return app.refused("book_reminder_invalid")
+        val sealer = ContactSeal.resolve() ?: return app.refused("book_no_key")
         val result = CustomerBook.withBook(context) { db, workspace ->
             db.records().createFollowUp(UUID.randomUUID().toString(), workspace, customerId, sealer.seal(clean.toByteArray(Charsets.UTF_8)), when_.dueUtcMs, offsetMin, System.currentTimeMillis())
         }
-        return if (result == RecordResult.Applied) BookResult.Ok else BookResult.Refused("تعذر حفظ المتابعة.", "Could not save the follow-up.")
+        return if (result == RecordResult.Applied) BookResult.Ok else app.refused("book_followup_failed")
     }
 
     fun complete(context: Context, id: String): BookResult {
+        val app = context.applicationContext
         val result = CustomerBook.withBook(context) { db, _ -> db.records().completeFollowUp(id, System.currentTimeMillis()) }
-        return if (result == RecordResult.Applied) BookResult.Ok else BookResult.Refused("لم يتم التغيير.", "The change was not made.")
+        return if (result == RecordResult.Applied) BookResult.Ok else app.refused("book_no_change")
     }
 
     fun hide(context: Context, id: String): BookResult {
         val result = CustomerBook.withBook(context) { db, _ -> db.records().softDeleteFollowUp(id, System.currentTimeMillis()) }
-        return if (result == RecordResult.Applied) BookResult.Ok else BookResult.Refused("لم يتم التغيير.", "The change was not made.")
+        return if (result == RecordResult.Applied) BookResult.Ok else app.refused("book_no_change")
     }
 }
 

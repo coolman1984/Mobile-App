@@ -1,5 +1,6 @@
 package com.pixelplus.owner
 
+import com.pixelplus.owner.ui.text
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
@@ -101,7 +102,12 @@ data class RequestCard(
     val pending: Boolean,
     val canApprove: Boolean,
     val canReject: Boolean,
-    val demo: Boolean
+    val demo: Boolean,
+    val device: String = "",
+    val shop: String = "",
+    val version: String = "",
+    val createdAtEpoch: Long = 0L,
+    val ownerDecision: String? = null,
 )
 
 data class RequestsPresentation(
@@ -117,7 +123,11 @@ data class AlertCard(
     val title: String,
     val detail: String,
     val demo: Boolean,
-    val read: Boolean = false
+    val read: Boolean = false,
+    val eventKind: String = "",
+    val eventAtEpoch: Long = 0L,
+    val requestId: String? = null,
+    val extraDetail: String = "",
 )
 
 data class AlertsPresentation(
@@ -225,33 +235,6 @@ fun formatEpoch(seconds: Long): String = try {
     CLOCK.format(Instant.ofEpochSecond(seconds)) + " UTC"
 } catch (e: Exception) {
     seconds.toString()
-}
-
-fun kindTitle(kind: String): String = when (kind) {
-    "trial" -> "تجربة"
-    "monthly" -> "اشتراك شهري"
-    "permanent" -> "تفعيل دائم"
-    else -> kind
-}
-
-fun decisionLabel(decision: String?): String = when (decision) {
-    null, "" -> "في الانتظار"
-    "approved" -> "تمت الموافقة. إصدار الكود يتم على الكمبيوتر"
-    "expired" -> "الموافقة انتهت"
-    "denied" -> "مرفوض"
-    else -> decision
-}
-
-fun eventTitle(event: String): String = when (event) {
-    "created" -> "طلب جديد"
-    "approved" -> "موافقة مسجّلة"
-    "refused" -> "طلب مرفوض"
-    "issued" -> "كود صدر من الكمبيوتر"
-    "delivered" -> "المحل استلم الكود"
-    "reissued" -> "إعادة تسليم كود موجود"
-    "tg_refused" -> "ضغط غير مقبول"
-    "tg_stale" -> "موافقة قديمة"
-    else -> event
 }
 
 fun parsePending(body: String): Parse<List<LicenceRequest>> {
@@ -387,16 +370,16 @@ fun noticeNew(
     )
 }
 
-fun notificationText(fresh: FreshNotice): String? {
+fun notificationText(context: android.content.Context, fresh: FreshNotice): String? {
     if (fresh.newRequestIds.isEmpty() && fresh.newEventIds.isEmpty()) return null
     val parts = ArrayList<String>(2)
     if (fresh.newRequestIds.isNotEmpty()) {
         val count = fresh.newRequestIds.size
-        parts.add("طلبات جديدة: $count / New requests: $count")
+        parts.add(context.text("notification_new_requests", count))
     }
     if (fresh.newEventIds.isNotEmpty()) {
         val count = fresh.newEventIds.size
-        parts.add("أحداث جديدة: $count / New events: $count")
+        parts.add(context.text("notification_new_events", count))
     }
     return parts.joinToString(" — ")
 }
@@ -532,13 +515,14 @@ fun presentRequests(
 }
 
 fun presentAlerts(
+    context: android.content.Context,
     config: HubConfig,
     demo: DemoState,
     loading: Boolean,
     errorCode: String?,
     events: List<LicenceEvent>?,
     pull: PullSummary?,
-    pullError: String?
+    pullError: String?,
 ): AlertsPresentation {
     if (!config.isLive) {
         return AlertsPresentation(
@@ -558,65 +542,71 @@ fun presentAlerts(
         loading = loading && events == null,
         errorCode = errorCode,
         cards = events.orEmpty().map { eventCard(it) },
-        pullNote = if (config.pullToken.isBlank()) "لم يُحفظ رمز سحب القياسات. تُعرض أحداث الترخيص فقط." else null,
-        pullSummary = pull?.let { pullSummaryText(it) },
+        pullNote = if (config.pullToken.isBlank()) com.pixelplus.owner.ui.text(context, "pull_token_missing") else null,
+        pullSummary = pull?.let { pullSummaryText(context, it) },
         pullError = pullError
     )
 }
 
-fun pullSummaryText(summary: PullSummary): String =
-    "دفعات قياسات في هذه الصفحة: ${summary.shown}. معروفة: ${summary.known}. غير مسجّلة: ${summary.unregistered}. الحجم: ${summary.bytes} بايت. لم يُحذف شيء."
+fun pullSummaryText(context: android.content.Context, summary: PullSummary): String =
+    com.pixelplus.owner.ui.text(context, "pull_summary", summary.shown, summary.known, summary.unregistered, summary.bytes)
 
 fun homeLines(
+    context: android.content.Context,
     config: HubConfig,
     demo: DemoState,
     requests: List<LicenceRequest>?,
-    events: List<LicenceEvent>?
+    events: List<LicenceEvent>?,
 ): List<HomeLine> {
+    val t = { key: String -> com.pixelplus.owner.ui.text(context, key) }
     if (!config.isLive) {
         return listOf(
-            HomeLine("الشركات", demo.companies.size.toString()),
-            HomeLine("طلبات المراجعة", demo.visibleRequests().count { it.status == RequestStatus.PENDING }.toString()),
-            HomeLine("تنبيهات غير مقروءة", demo.visibleAlerts().count { !it.read }.toString())
+            HomeLine(t("home_companies"), demo.companies.size.toString()),
+            HomeLine(t("home_review_requests"), demo.visibleRequests().count { it.status == RequestStatus.PENDING }.toString()),
+            HomeLine(t("home_unread_alerts"), demo.visibleAlerts().count { !it.read }.toString()),
         )
     }
     return listOf(
-        HomeLine("طلبات معلّقة", (requests?.size ?: 0).toString()),
-        HomeLine("أحداث معروضة", (events?.size ?: 0).toString()),
-        HomeLine("وضع العمل", "مباشر")
+        HomeLine(t("home_pending"), (requests?.size ?: 0).toString()),
+        HomeLine(t("home_events"), (events?.size ?: 0).toString()),
+        HomeLine(t("home_live_mode"), t("home_live")),
     )
 }
 
-fun presentCompanies(config: HubConfig, demo: DemoState, requests: List<LicenceRequest>?): CompaniesPresentation {
+fun presentCompanies(context: android.content.Context, config: HubConfig, demo: DemoState, requests: List<LicenceRequest>?): CompaniesPresentation {
     if (!config.isLive) return CompaniesPresentation(true, demo.companies.map { it.name }, null)
     return CompaniesPresentation(
         demo = false,
         names = requests.orEmpty().map { it.product }.distinct(),
-        note = "المركز لا يرسل قائمة شركات. هذه المنتجات الظاهرة في الطلبات المعلّقة."
+        note = com.pixelplus.owner.ui.text(context, "hub_products_note"),
     )
 }
 
-fun arabicFailure(code: String?): String = when (code) {
-    null, "" -> ""
-    "unauthorised", "401" -> "رُفض الرمز. راجع الرمز في الإعدادات."
-    "network", "io" -> "تعذر الاتصال بالمركز."
-    "redirect" -> "المركز أعاد تحويلاً. لم يُرسل الرمز إلى عنوان آخر."
-    "not_https" -> "العنوان يجب أن يبدأ بـ https."
-    "bad_response", "json", "shape" -> "رد غير مفهوم من المركز."
-    "bad_url", "bad_host", "empty", "path", "extra", "userinfo", "too_long" ->
-        "عنوان المركز غير مقبول. استخدم https من غير مسار ومن غير اسم مستخدم."
-    "empty_token", "bad_token", "no_token" -> "رمز المالك مطلوب، من غير مسافات."
-    "bad_pull_token" -> "رمز سحب القياسات غير مقبول."
-    "no_pull_token" -> "رمز سحب القياسات غير محفوظ."
-    "closed" -> "الطلب لم يعد معلّقًا."
-    "stale" -> "الطلب قديم. اطلب من المحل إرسال طلب جديد."
-    "expired" -> "الموافقة السابقة انتهت."
-    "not found" -> "الطلب غير موجود."
-    "code" -> "لا يُرسل أي كود من الهاتف."
-    "fields" -> "المركز رفض القرار. قد يحتاج المركز إلى تحديث، ولم يُصدر أي كود."
-    "too_large" -> "الرد أكبر من الحد. لم يُحذف شيء."
-    "http" -> "المركز أعاد خطأ."
-    else -> "تعذر إكمال العملية."
+fun failureKey(code: String?): String? = when (code) {
+    null, "" -> null
+    "unauthorised", "401" -> "err_unauthorised"
+    "network", "io" -> "err_network"
+    "redirect" -> "err_redirect"
+    "not_https" -> "err_not_https"
+    "bad_response", "json", "shape" -> "err_bad_response"
+    "bad_url", "bad_host", "empty", "path", "extra", "userinfo", "too_long" -> "err_bad_url"
+    "empty_token", "bad_token", "no_token" -> "err_empty_token"
+    "bad_pull_token" -> "err_bad_pull"
+    "no_pull_token" -> "err_no_pull"
+    "closed" -> "err_closed"
+    "stale" -> "err_stale"
+    "expired" -> "err_expired"
+    "not found" -> "err_not_found"
+    "code" -> "err_code"
+    "fields" -> "err_fields"
+    "too_large" -> "err_too_large"
+    "http" -> "err_http"
+    else -> "err_generic"
+}
+
+fun failureMessage(context: android.content.Context, code: String?): String {
+    val key = failureKey(code) ?: return ""
+    return com.pixelplus.owner.ui.text(context, key)
 }
 
 private fun rememberIds(current: List<String>, previous: List<String>, cap: Int): List<String> {
@@ -636,7 +626,7 @@ private fun rememberIds(current: List<String>, previous: List<String>, cap: Int)
 private fun demoCard(req: ActivationRequest) = RequestCard(
     id = req.id,
     title = req.id + " • " + req.product,
-    detail = "النوع: " + req.kind.title + " | الجهاز: " + req.deviceRef,
+    detail = req.kind.title + "\t" + req.deviceRef,
     status = req.status.title,
     kind = req.kind.name,
     pending = req.status == RequestStatus.PENDING,
@@ -647,26 +637,32 @@ private fun demoCard(req: ActivationRequest) = RequestCard(
 
 private fun liveCard(req: LicenceRequest) = RequestCard(
     id = req.id,
-    title = req.product + " • " + kindTitle(req.kind),
-    detail = "الجهاز: " + req.device +
-        "\nالمحل: " + req.shop.ifBlank { "—" } +
-        (if (req.version.isBlank()) "" else "\nالإصدار: " + req.version) +
-        "\nالوقت: " + formatEpoch(req.createdAt),
-    status = decisionLabel(req.ownerDecision),
+    title = req.product,
+    detail = "",
+    status = req.ownerDecision ?: "",
     kind = req.kind,
     pending = true,
     canApprove = req.ownerDecision != "approved",
     canReject = true,
-    demo = false
+    demo = false,
+    device = req.device,
+    shop = req.shop,
+    version = req.version,
+    createdAtEpoch = req.createdAt,
+    ownerDecision = req.ownerDecision,
 )
 
 private fun eventCard(event: LicenceEvent): AlertCard {
-    val detail = buildString {
-        append(formatEpoch(event.at))
-        if (!event.requestId.isNullOrBlank()) append("\nالطلب: ").append(event.requestId.take(8))
-        if (event.detail.isNotBlank()) append("\n").append(event.detail)
-    }
-    return AlertCard(event.id, eventTitle(event.event), detail, demo = false)
+    return AlertCard(
+        id = event.id,
+        title = event.event,
+        detail = "",
+        demo = false,
+        eventKind = event.event,
+        eventAtEpoch = event.at,
+        requestId = event.requestId,
+        extraDetail = event.detail,
+    )
 }
 
 private fun jsonRows(body: String, key: String): Parse<List<JsonObject>> {

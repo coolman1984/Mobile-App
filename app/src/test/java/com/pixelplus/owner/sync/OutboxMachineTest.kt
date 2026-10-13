@@ -3,8 +3,13 @@ package com.pixelplus.owner.sync
 import com.pixelplus.owner.*
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 
+@RunWith(RobolectricTestRunner::class)
 class OutboxMachineTest {
+    private val ctx get() = RuntimeEnvironment.getApplication()
     private fun state(status: OutboxStatus = OutboxStatus.QUEUED) = OutboxState(status, 0, 100, null, null, 100_000, null, 1, 1)
     @Test fun claimAndCancelRespectLeaseAndIntentExpiry() {
         assertTrue(OutboxMachine.claim(state(), 99) is MachineMove.No)
@@ -73,12 +78,12 @@ class OutboxMachineTest {
         assertTrue(hintForDecide(HubResult.Http(403,"forbidden"),"approve") is SendHint.Auth)
     }
     @Test fun queueCopyIsBilingualAndNeverDescribesIssuedCode() {
-        val copy = SyncCopy.queuedDisplay("approve")
+        val copy = SyncCopy.queuedDisplay(ctx, "approve")
         assertTrue(copy.contains("قائمة الانتظار"))
         assertTrue(copy.contains("Not confirmed"))
         assertFalse(copy.contains("issued"))
-        assertEquals("", SyncCopy.queueLine(0,null))
-        val cached = SyncCopy.cachedSnapshot(0)
+        assertEquals("", SyncCopy.queueLine(ctx, 0, null))
+        val cached = SyncCopy.cachedSnapshot(ctx, 0)
         assertTrue(cached.arabic.contains("القاهرة"))
         assertTrue(cached.english.contains("Cairo"))
         assertTrue(cached.display.contains("1970-01-01T02:00:00+02:00"))

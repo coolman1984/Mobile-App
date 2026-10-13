@@ -6,7 +6,7 @@ import com.pixelplus.owner.HubResult
 import com.pixelplus.owner.LicenceRequest
 import com.pixelplus.owner.OwnerAction
 import com.pixelplus.owner.UrlResult
-import com.pixelplus.owner.arabicFailure
+import com.pixelplus.owner.failureMessage
 import com.pixelplus.owner.data.db.OwnerDatabase
 import com.pixelplus.owner.normalizeHubUrl
 
@@ -42,20 +42,20 @@ object OwnerSync {
     }
 
     fun enqueue(context: Context, config: HubConfig, request: LicenceRequest, action: OwnerAction): String = synchronized(HubSession.lock) {
-        if (com.pixelplus.owner.SecureHubStore(context).read() != config) return SyncCopy.settingsChanged().display
-        if (!config.isLive) return arabicFailure("no_token")
-        val database = open(context) ?: return arabicFailure("http")
+        if (com.pixelplus.owner.SecureHubStore(context).read() != config) return SyncCopy.settingsChanged(context).display
+        if (!config.isLive) return failureMessage(context, "no_token")
+        val database = open(context) ?: return failureMessage(context, "http")
         return try {
             val store = SyncStore(database)
             val now = System.currentTimeMillis()
-            val profile = store.ensureProfile(config.baseUrl, now) ?: return arabicFailure("bad_url")
+            val profile = store.ensureProfile(config.baseUrl, now) ?: return failureMessage(context, "bad_url")
             when (val outcome = store.enqueue(profile, request, action, now)) {
                 is QueueOutcome.Queued -> {
                     runCatching { com.pixelplus.owner.HubScheduler.kick(context, profile.profileId) }
                     outcome.display
                 }
                 is QueueOutcome.Existing -> outcome.display
-                is QueueOutcome.Rejected -> arabicFailure(outcome.reason)
+                is QueueOutcome.Rejected -> failureMessage(context, outcome.reason)
             }
         } finally {
             database.close()
