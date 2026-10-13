@@ -8,6 +8,7 @@ import com.pixelplus.owner.audit.JsonValue
 import com.pixelplus.owner.data.db.AuditSpec
 import com.pixelplus.owner.data.db.AuditWriter
 import com.pixelplus.owner.data.db.OwnerDatabase
+import com.pixelplus.owner.ui.TextKey
 import java.io.File
 
 /**
@@ -26,7 +27,7 @@ object AndroidRestore {
 
     sealed class Applied {
         data class Done(val safetyCopy: String, val quarantined: Int) : Applied()
-        data class Failed(val reasonAr: String, val reasonEn: String) : Applied()
+        data class Failed(val reason: TextKey) : Applied()
     }
 
     private val ACTIVE_STATUSES = "'CONFIRMED_LOCAL','QUEUED','LEASED','SENT','RETRY_WAIT'"
@@ -51,13 +52,13 @@ object AndroidRestore {
         live.parentFile?.mkdirs()
         val candidate = File(live.parentFile, "$dbName.restore-candidate")
         val safety = File(app.filesDir, "pre-restore-$nowUtcMs.db")
-        fun fail(ar: String, en: String): Applied.Failed {
+        fun fail(key: String): Applied.Failed {
             candidate.delete()
-            return Applied.Failed(ar, en)
+            return Applied.Failed(TextKey.of(key))
         }
-        val bytes = plan.files[BackupLimits.DATABASE] ?: return fail("الملف لا يحتوي قاعدة البيانات.", "The file holds no database.")
-        runCatching { candidate.writeBytes(bytes) }.getOrElse { return fail("تعذر تجهيز النسخة للاستعادة.", "Could not prepare the copy.") }
-        verifyCandidate(candidate, plan.manifest.dbSchemaVersion)?.let { return fail(it.first, it.second) }
+        val bytes = plan.files[BackupLimits.DATABASE] ?: return fail("restore_no_db")
+        runCatching { candidate.writeBytes(bytes) }.getOrElse { return fail("restore_prepare_failed") }
+        verifyCandidate(candidate, plan.manifest.dbSchemaVersion)?.let { return fail(it) }
 
         // 1. keep what is on the phone now
         if (live.exists()) {
@@ -68,7 +69,7 @@ object AndroidRestore {
                 live.copyTo(safety, overwrite = true)
                 true
             }.getOrDefault(false)
-            if (!ok) { safety.delete(); return fail("تعذر حفظ نسخة أمان من البيانات الحالية، فلم تتغير.", "Could not keep a safety copy of the current data, so nothing changed.") }
+            if (!ok) { safety.delete(); return fail("restore_safety_failed") }
         }
 
         // 2. swap
@@ -82,7 +83,7 @@ object AndroidRestore {
             if (live.exists() && !live.delete()) error("live")
             if (!candidate.renameTo(live)) { candidate.copyTo(live, overwrite = true); candidate.delete() }
         }.isSuccess
-        if (!swapped) { putBack(); return fail("تعذر استبدال البيانات. أُعيدت البيانات السابقة.", "Could not replace the data. The previous data was put back.") }
+        if (!swapped) { putBack(); return fail("restore_swap_failed") }
 
         // 3. reopen (runs the normal migrations), quarantine the queue, record the restore
         val quarantined = runCatching {
@@ -112,14 +113,14 @@ object AndroidRestore {
             }
         }.getOrElse {
             putBack()
-            return Applied.Failed("تعذر فتح البيانات المستعادة. أُعيدت البيانات السابقة.", "The restored data could not be opened. The previous data was put back.")
+            return Applied.Failed(TextKey.of("restore_open_failed"))
         }
         return Applied.Done(safety.name, quarantined)
     }
 
     /** Null when the candidate is a sound notebook of the stated version; otherwise the reason to show. */
-    private fun verifyCandidate(file: File, expectedVersion: Int): Pair<String, String>? {
-        val bad = "الملف المستعاد غير سليم. لم يتغير شيء." to "The restored file is not sound. Nothing changed."
+    private fun verifyCandidate(file: File, expectedVersion: Int): String? {
+        val bad = "restore_file_bad"
         return try {
             val db = SQLiteDatabase.openDatabase(file.path, null, SQLiteDatabase.OPEN_READONLY)
             try {

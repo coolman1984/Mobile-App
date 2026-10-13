@@ -71,9 +71,9 @@ object DemoSeed {
             ActivationRequest("REQ-104", "demo-3", "إدارة الدروس", "DEMO-C1", LicenceKind.TRIAL)
         ),
         alerts = listOf(
-            OwnerAlert("AL-1", "demo-1", "طلب تفعيل جديد", "جهاز تجريبي ينتظر المراجعة"),
-            OwnerAlert("AL-2", "demo-2", "تنبيه نسخة احتياطية", "محاكاة تنبيه، وليس عطلًا حقيقيًا"),
-            OwnerAlert("AL-3", "demo-3", "تجديد قريب", "محاكاة انتهاء اشتراك")
+            OwnerAlert("AL-1", "demo-1", "demo_alert_al1_title", "demo_alert_al1_detail"),
+            OwnerAlert("AL-2", "demo-2", "demo_alert_al2_title", "demo_alert_al2_detail"),
+            OwnerAlert("AL-3", "demo-3", "demo_alert_al3_title", "demo_alert_al3_detail"),
         )
     )
 }

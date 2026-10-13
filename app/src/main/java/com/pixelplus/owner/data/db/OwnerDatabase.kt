@@ -44,6 +44,8 @@ import com.pixelplus.owner.audit.RandomIdSource
     exportSchema = true,
 )
 abstract class OwnerDatabase : RoomDatabase() {
+    internal lateinit var applicationContext: Context
+
     abstract fun ownerDao(): OwnerDao
 
     abstract fun auditDao(): AuditDao
@@ -98,6 +100,7 @@ abstract class OwnerDatabase : RoomDatabase() {
                 .addCallback(ConstraintCallback)
             if (allowMainThreadQueries) builder.allowMainThreadQueries()
             val database = builder.build()
+            database.applicationContext = context.applicationContext
             val resolved = runtime ?: AuditRuntime.resolve(context)
             database.auditRuntime = resolved
             database.outboxSealer = if (runtime != null) {

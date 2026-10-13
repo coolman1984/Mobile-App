@@ -45,7 +45,10 @@ object AuditRedaction {
         "queuedCount",
         "confirmedCount",
         "blockedCount",
+        "locale",
     )
+
+    private val LOCALE_VALUES = setOf("ar", "en", "system")
 
     private val SENSITIVE_KEYS: Set<String> = setOf(
         "name",
@@ -85,6 +88,10 @@ object AuditRedaction {
             val normal = key.trim()
             when {
                 normal.lowercase() in SENSITIVE_KEYS -> kept[normal] = JsonValue.Text(REDACTED)
+                normal == "locale" -> {
+                    val tag = (value as? JsonValue.Text)?.value?.trim()
+                    if (tag in LOCALE_VALUES) kept[normal] = JsonValue.Text(tag!!)
+                }
                 normal in ALLOWED_KEYS -> kept[normal] = cleanValue(value)
             }
         }

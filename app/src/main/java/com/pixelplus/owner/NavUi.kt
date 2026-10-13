@@ -15,9 +15,7 @@ import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -26,6 +24,7 @@ import com.pixelplus.owner.navigation.Destinations
 import com.pixelplus.owner.navigation.NavLayout
 import com.pixelplus.owner.navigation.Route
 import com.pixelplus.owner.navigation.RootTab
+import com.pixelplus.owner.ui.labelOf
 
 /**
  * Compose pieces for the M07 navigation model. All decisions live in `navigation/` (pure, tested); this file only draws them.
@@ -38,17 +37,8 @@ internal const val REAL_ISSUANCE_ENABLED = com.pixelplus.owner.licensing.OwnerBu
 /** Destinations that have a real screen in this build. Every other destination shows an honest "not available yet". */
 internal val BUILT_DESTINATIONS = setOf(
     "home", "requests", "customers", "alerts", "more", "settings", "codes",
-    "settings_appearance", "settings_lock", "settings_backup", "activity", "money", "followups", "licences", "installs",
+    "settings_appearance", "settings_language", "settings_lock", "settings_backup", "activity", "money", "followups", "licences", "installs",
 )
-
-@Composable
-internal fun labelOf(key: String): String {
-    val context = LocalContext.current
-    return remember(key, context.resources.configuration) {
-        val id = context.resources.getIdentifier(key, "string", context.packageName)
-        if (id != 0) context.getString(id) else key
-    }
-}
 
 private fun emoji(tab: RootTab) = when (tab) {
     RootTab.HOME -> "🏠"

@@ -71,7 +71,7 @@ object Destinations {
     Dest("settings", "settings", RootTab.MORE, MoreCategory.SYSTEM, null),
     Dest("settings_hub", "settings/hub", RootTab.MORE, null, null),
     Dest("settings_appearance", "settings/appearance", RootTab.MORE, MoreCategory.SYSTEM, null),
-    Dest("settings_language", "settings/language", RootTab.MORE, null, null),
+    Dest("settings_language", "settings/language", RootTab.MORE, MoreCategory.SYSTEM, null),
     Dest("settings_lock", "settings/lock", RootTab.MORE, MoreCategory.SYSTEM, null),
     Dest("settings_notifications", "settings/notifications", RootTab.MORE, null, null),
     Dest("settings_backup", "settings/backup", RootTab.MORE, MoreCategory.SYSTEM, null),

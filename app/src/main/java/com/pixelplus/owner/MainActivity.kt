@@ -17,10 +17,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
-import androidx.fragment.app.FragmentActivity
+import androidx.appcompat.app.AppCompatActivity
 import com.pixelplus.owner.security.LockPolicy
+import com.pixelplus.owner.ui.text
 
-class MainActivity : FragmentActivity() {
+class MainActivity : AppCompatActivity() {
     private val askNotifications = registerForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
     private lateinit var prefs: OwnerPrefs
 
@@ -118,8 +119,8 @@ class MainActivity : FragmentActivity() {
                 },
             )
             val info = BiometricPrompt.PromptInfo.Builder()
-                .setTitle("بيكسل بلس")
-                .setSubtitle("افتح القفل للمتابعة / Unlock to continue")
+                .setTitle(text("brand_short"))
+                .setSubtitle(text("biometric_subtitle"))
                 .setAllowedAuthenticators(flags)
                 .build()
             val started = runCatching { prompt.authenticate(info) }.isSuccess
@@ -127,7 +128,7 @@ class MainActivity : FragmentActivity() {
             return
         }
         val manager = getSystemService(KEYGUARD_SERVICE) as? KeyguardManager
-        val intent = manager?.createConfirmDeviceCredentialIntent("بيكسل بلس", "افتح القفل للمتابعة / Unlock to continue")
+        val intent = manager?.createConfirmDeviceCredentialIntent(text("brand_short"), text("biometric_subtitle"))
         if (intent == null) {
             if (pendingReauth != null) finishAuth(false)
             return

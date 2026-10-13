@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.pixelplus.owner.data.db.OwnerDatabase
+import com.pixelplus.owner.ui.pluralText
 import java.util.concurrent.TimeUnit
 
 /**
@@ -46,7 +47,7 @@ object FollowUpReminders {
             val notified = sp.getStringSet(KEY, emptySet()).orEmpty().toSet()
             val fresh = due(rows, now, notified)
             if (fresh.isNotEmpty()) {
-                val text = if (fresh.size == 1) "1 متابعة حان موعدها" else "${fresh.size} متابعات حان موعدها"
+                val text = context.pluralText("followup_due_notification", fresh.size, fresh.size)
                 // remembered only when Android accepted the notification, so a denied permission does not swallow the reminder
                 if (HubNotifications.post(context, text, NOTIFICATION_ID)) {
                     sp.edit().putStringSet(KEY, (notified + fresh).toSet()).apply()

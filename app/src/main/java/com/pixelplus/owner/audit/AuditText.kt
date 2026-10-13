@@ -20,6 +20,7 @@ object AuditVocab {
     const val SCREEN_MONEY = "money"
     const val SCREEN_ACTIVITY = "activity"
     const val SCREEN_REQUESTS = "requests"
+    const val SCREEN_SETTINGS = "settings"
 
     const val ACTION_CREATE = "create"
     const val ACTION_UPDATE = "update"
@@ -57,6 +58,7 @@ object AuditVocab {
         SCREEN_MONEY,
         SCREEN_ACTIVITY,
         SCREEN_REQUESTS,
+        SCREEN_SETTINGS,
     )
     val ACTIONS = setOf(
         ACTION_CREATE,
@@ -139,6 +141,12 @@ object AuditText {
             return AuditExplanation(
                 "تغيّر عنوان المركز. القرارات القديمة لا تُرسل إلى العنوان الجديد.",
                 "The hub address changed. Older decisions are not sent to the new address.",
+            )
+        }
+        if (entityType == AuditVocab.ENTITY_WORKSPACE && reasonCode == "locale") {
+            return AuditExplanation(
+                "تم تغيير لغة التطبيق.",
+                "The app language was changed.",
             )
         }
         if (result == AuditVocab.RESULT_CONFLICT) {

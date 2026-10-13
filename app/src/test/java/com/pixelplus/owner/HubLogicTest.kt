@@ -8,8 +8,14 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import com.pixelplus.owner.ui.text
 
+@RunWith(RobolectricTestRunner::class)
 class HubLogicTest {
+    private val ctx get() = RuntimeEnvironment.getApplication()
     private val id = "11111111-2222-4333-8444-555555555555"
     private val secret = "owner-secret-value"
     private val pullSecret = "pull-secret-value"
@@ -64,7 +70,7 @@ class HubLogicTest {
         ) as Parse.Ok<List<LicenceEvent>>
         assertEquals("7", events.value.single().id)
         assertNull(events.value.single().requestId)
-        assertEquals("طلب جديد", eventTitle(events.value.single().event))
+        assertEquals("created", events.value.single().event)
         assertTrue(parsePending("{") is Parse.Bad)
         assertTrue(parsePending("""{"error":"unauthorised"}""") is Parse.Bad)
     }
@@ -82,7 +88,7 @@ class HubLogicTest {
         assertEquals(PullSummary(shown = 2, known = 1, unregistered = 1, bytes = 15), summary)
         assertFalse(summary.toString().contains(body))
         assertFalse(summary.toString().contains(hash))
-        assertTrue(pullSummaryText(summary).contains("لم يُحذف شيء"))
+        assertEquals(ctx.text("pull_summary", 2, 1, 1, 15), pullSummaryText(ctx, summary))
     }
 
     @Test fun firstSightIsSilentAndOnlyLaterIdsNotify() {
@@ -98,9 +104,9 @@ class HubLogicTest {
         val failed = noticeNew(second.next, null, null)
         assertEquals(second.next.requestIds, failed.next.requestIds)
         assertTrue(failed.newRequestIds.isEmpty())
-        assertNull(notificationText(first))
-        assertEquals("طلبات جديدة: 1 / New requests: 1", notificationText(second))
-        assertFalse(notificationText(second)!!.contains(secret))
+        assertNull(notificationText(ctx, first))
+        assertEquals(ctx.text("notification_new_requests", 1), notificationText(ctx, second))
+        assertFalse(notificationText(ctx, second)!!.contains(secret))
     }
 
     @Test fun rememberedIdsStayBounded() {
@@ -143,27 +149,28 @@ class HubLogicTest {
         assertFalse(failed.demo)
         assertTrue(failed.cards.isEmpty())
         assertEquals("unauthorised", failed.errorCode)
-        assertFalse(arabicFailure(failed.errorCode).contains(secret))
+        assertEquals("err_unauthorised", failureKey(failed.errorCode))
         val loading = presentRequests(live, demo, loading = true, errorCode = null, live = null)
         assertTrue(loading.loading)
         assertTrue(loading.cards.isEmpty())
     }
 
     @Test fun alertsShowWhatTheHubReturnsAndDoNotPretendToDeleteIt() {
-        val demo = presentAlerts(HubConfig("", "", ""), DemoSeed.state(), false, null, null, null, null)
+        val demo = presentAlerts(ctx, HubConfig("", "", ""), DemoSeed.state(), false, null, null, null, null)
         assertTrue(demo.demo)
         assertEquals(3, demo.cards.size)
         assertNull(demo.pullNote)
         val events = listOf(LicenceEvent("4", 0, id, "approved", "admin"))
-        val noPull = presentAlerts(live.copy(pullToken = ""), DemoSeed.state(), false, null, events, null, null)
+        val noPull = presentAlerts(ctx, live.copy(pullToken = ""), DemoSeed.state(), false, null, events, null, null)
         assertFalse(noPull.demo)
-        assertEquals("موافقة مسجّلة", noPull.cards.single().title)
-        assertTrue(noPull.pullNote!!.contains("رمز سحب القياسات"))
+        assertEquals("approved", noPull.cards.single().title)
+        assertEquals("approved", noPull.cards.single().eventKind)
+        assertEquals(ctx.text("pull_token_missing"), noPull.pullNote)
         assertNull(noPull.pullSummary)
-        val withPull = presentAlerts(live, DemoSeed.state(), false, null, events, PullSummary(1, 1, 0, 8), null)
-        assertTrue(withPull.pullSummary!!.contains("لم يُحذف شيء"))
+        val withPull = presentAlerts(ctx, live, DemoSeed.state(), false, null, events, PullSummary(1, 1, 0, 8), null)
+        assertEquals(pullSummaryText(ctx, PullSummary(1, 1, 0, 8)), withPull.pullSummary)
         assertNull(withPull.pullNote)
-        val companies = presentCompanies(live, DemoSeed.state(), events.let {
+        val companies = presentCompanies(ctx, live, DemoSeed.state(), events.let {
             listOf(LicenceRequest(id, "al-store", "trial", "7KD2M-QX9TP", "", "", 0, null))
         })
         assertFalse(companies.demo)

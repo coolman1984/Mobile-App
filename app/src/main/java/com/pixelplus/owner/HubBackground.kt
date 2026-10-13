@@ -25,6 +25,7 @@ import com.pixelplus.owner.sync.HubSync
 import com.pixelplus.owner.sync.SyncStore
 import com.pixelplus.owner.sync.stableEventKey
 import com.pixelplus.owner.sync.stableRequestKey
+import com.pixelplus.owner.ui.text
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -70,7 +71,7 @@ internal object HubJobs {
                     val requestPlan = if (pending is HubResult.Ok) store.noticeSnapshot(profile.profileId, "notice_requests", requestKeys, now) else com.pixelplus.owner.sync.NoticePlan(emptyList(), emptyList())
                     val eventPlan = if (events is HubResult.Ok) store.noticeSnapshot(profile.profileId, "notice_events", eventKeys, now) else com.pixelplus.owner.sync.NoticePlan(emptyList(), emptyList())
                     val fresh = FreshNotice(requestPlan.notify, eventPlan.notify, SeenMarks.EMPTY)
-                    notificationText(fresh)?.let {
+                    notificationText(context, fresh)?.let {
                         if (HubNotifications.post(context, it, HubNotifications.HUB_ID)) {
                             store.markNoticesDelivered(profile.profileId, requestPlan.notify + eventPlan.notify, now)
                         }
@@ -158,8 +159,8 @@ object HubNotifications {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return false
         if (!manager.areNotificationsEnabled()) return false
         if (manager.getNotificationChannel(CHANNEL_ID) == null) {
-            val channel = NotificationChannel(CHANNEL_ID, "تنبيهات المركز والمتابعات", NotificationManager.IMPORTANCE_DEFAULT)
-            channel.description = "طلبات الترخيص والأحداث الجديدة وموعد المتابعات"
+            val channel = NotificationChannel(CHANNEL_ID, context.text("notification_channel_name"), NotificationManager.IMPORTANCE_DEFAULT)
+            channel.description = context.text("notification_channel_desc")
             manager.createNotificationChannel(channel)
         }
         val open = Intent(context, MainActivity::class.java).apply {
@@ -173,7 +174,7 @@ object HubNotifications {
         )
         val notification = Notification.Builder(context, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setContentTitle("بيكسل بلس")
+            .setContentTitle(context.text("brand_short"))
             .setContentText(text)
             .setAutoCancel(true)
             .setContentIntent(pending)

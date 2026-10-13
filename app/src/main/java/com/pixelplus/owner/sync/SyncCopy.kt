@@ -1,5 +1,11 @@
 package com.pixelplus.owner.sync
 
+import android.content.Context
+import android.content.res.Configuration
+import com.pixelplus.owner.ui.bothLines
+import com.pixelplus.owner.ui.text
+import java.util.Locale
+
 /**
  * Both languages are shown. The phone language does not hide one of them.
  * Remote success is a different sentence from a queued intent.
@@ -9,63 +15,52 @@ data class BothLines(val arabic: String, val english: String) {
 }
 
 object SyncCopy {
-    fun cachedSnapshot(lastSuccessMs: Long): BothLines {
+    fun cachedSnapshot(context: Context, lastSuccessMs: Long): BothLines {
         val stamp = com.pixelplus.owner.domain.CairoClock.stamp(lastSuccessMs).cairoLocalIso
-        return BothLines("نسخة محفوظة؛ قد تكون حالة الطلب تغيّرت. آخر اتصال بتوقيت القاهرة: $stamp", "Saved snapshot; request status may have changed. Last connection in Cairo: $stamp")
+        return context.bothLines("sync_cached", stamp)
     }
 
-    fun settingsChanged() = BothLines("تغيّرت إعدادات المركز. راجع الطلب مرة أخرى.", "Hub settings changed. Review the request again.")
-    fun queued(action: String): BothLines = when (action) {
-        OutboxRules.ACTION_APPROVE -> BothLines(
-            "تم تسجيل الموافقة في قائمة الانتظار.",
-            "Approval was added to the queue.",
-        )
-        else -> BothLines(
-            "تم تسجيل الرفض في قائمة الانتظار.",
-            "Refusal was added to the queue.",
-        )
+    fun settingsChanged(context: Context) = context.bothLines("sync_settings_changed")
+
+    fun queued(context: Context, action: String): BothLines = when (action) {
+        OutboxRules.ACTION_APPROVE -> context.bothLines("sync_queued_approve")
+        else -> context.bothLines("sync_queued_refuse")
     }
 
-    fun notRemote(): BothLines = BothLines(
-        "لم يُؤكَّد على المركز بعد.",
-        "Not confirmed on the hub yet.",
-    )
+    fun notRemote(context: Context) = context.bothLines("sync_not_remote")
 
-    fun existing(status: String): BothLines = when (status) {
-        OutboxStatus.CONFIRMED_REMOTE.name -> BothLines(
-            "المركز أكّد هذا القرار من قبل. لم يُرسل مرة ثانية.",
-            "The hub already confirmed this decision. It was not sent again.",
-        )
-        else -> BothLines(
-            "القرار موجود في قائمة الانتظار. لم يُرسل مرة ثانية.",
-            "This decision is already in the queue. It was not sent again.",
-        )
+    fun existing(context: Context, status: String): BothLines = when (status) {
+        OutboxStatus.CONFIRMED_REMOTE.name -> context.bothLines("sync_confirmed")
+        else -> context.bothLines("sync_duplicate")
     }
 
-    fun queuedDisplay(action: String): String = queued(action).display + "\n" + notRemote().display
+    fun queuedDisplay(context: Context, action: String): String =
+        queued(context, action).display + "\n" + notRemote(context).display
 
-    fun queueLine(waiting: Int, oldestAgeMs: Long?): String {
+    fun queueLine(context: Context, waiting: Int, oldestAgeMs: Long?): String {
         if (waiting <= 0) return ""
-        val age = oldestAgeMs?.let { ageWords(it) }
-        val arabic = if (age == null) {
-            "في الانتظار على الهاتف: $waiting."
+        val age = oldestAgeMs?.let { ageWords(context, it) }
+        return if (age == null) {
+            context.bothLines("sync_queue_waiting", waiting).display
         } else {
-            "في الانتظار على الهاتف: $waiting. الأقدم منذ ${age.arabic}."
+            queueOldestLine(context, waiting, age).display
         }
-        val english = if (age == null) {
-            "Waiting on this phone: $waiting."
-        } else {
-            "Waiting on this phone: $waiting. Oldest ${age.english}."
-        }
-        return arabic + "\n" + english
     }
 
-    private fun ageWords(ageMs: Long): BothLines {
+    private fun queueOldestLine(context: Context, waiting: Int, age: BothLines): BothLines {
+        fun line(locale: Locale, agePhrase: String): String {
+            val cfg = Configuration(context.resources.configuration).apply { setLocale(locale) }
+            return context.createConfigurationContext(cfg).text("sync_queue_oldest", waiting, agePhrase)
+        }
+        return BothLines(line(Locale("ar"), age.arabic), line(Locale.ENGLISH, age.english))
+    }
+
+    private fun ageWords(context: Context, ageMs: Long): BothLines {
         val minutes = (ageMs.coerceAtLeast(0L) / 60_000L).toInt()
         return when {
-            minutes < 1 -> BothLines("أقل من دقيقة", "less than a minute ago")
-            minutes < 60 -> BothLines("$minutes د", "$minutes min ago")
-            else -> BothLines("${minutes / 60} س", "${minutes / 60} h ago")
+            minutes < 1 -> context.bothLines("sync_age_lt_min")
+            minutes < 60 -> context.bothLines("sync_age_minutes", minutes)
+            else -> context.bothLines("sync_age_hours", minutes / 60)
         }
     }
 }

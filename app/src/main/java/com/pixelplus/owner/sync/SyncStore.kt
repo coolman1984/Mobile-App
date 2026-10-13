@@ -5,6 +5,7 @@ import com.pixelplus.owner.OwnerAction
 import com.pixelplus.owner.UrlResult
 import com.pixelplus.owner.data.db.AuditSpec
 import com.pixelplus.owner.audit.AuditVocab
+import com.pixelplus.owner.ui.bothLines
 import com.pixelplus.owner.audit.JsonValue
 import com.pixelplus.owner.data.db.AuditWriter
 import com.pixelplus.owner.data.db.HubEventEntity
@@ -218,7 +219,7 @@ internal class SyncStore(private val database: OwnerDatabase) {
         )
         if (active != null) {
             noteDuplicate(profile, request.id, nowMs)
-            return QueueOutcome.Existing(active.operationId, active.status, SyncCopy.existing(active.status).display)
+            return QueueOutcome.Existing(active.operationId, active.status, SyncCopy.existing(database.applicationContext, active.status).display)
         }
         return try {
             database.runInTransaction(
@@ -237,7 +238,7 @@ internal class SyncStore(private val database: OwnerDatabase) {
                         return@Callable QueueOutcome.Existing(
                             again.operationId,
                             again.status,
-                            SyncCopy.existing(again.status).display,
+                            SyncCopy.existing(database.applicationContext, again.status).display,
                         )
                     }
                     val generation = dao.decisionCount(profile.profileId, prefix) + 1
@@ -308,7 +309,7 @@ internal class SyncStore(private val database: OwnerDatabase) {
                             "credentialEpoch" to JsonValue.Int64(profile.credentialEpoch),
                         ),
                     )
-                    QueueOutcome.Queued(operationId, SyncCopy.queuedDisplay(verb))
+                    QueueOutcome.Queued(operationId, SyncCopy.queuedDisplay(database.applicationContext, verb))
                 },
             )
         } catch (error: RuntimeException) {
@@ -321,7 +322,7 @@ internal class SyncStore(private val database: OwnerDatabase) {
             )
             if (winner != null) {
                 noteDuplicate(profile, request.id, nowMs)
-                QueueOutcome.Existing(winner.operationId, winner.status, SyncCopy.existing(winner.status).display)
+                QueueOutcome.Existing(winner.operationId, winner.status, SyncCopy.existing(database.applicationContext, winner.status).display)
             } else {
                 throw error
             }
@@ -424,8 +425,8 @@ internal class SyncStore(private val database: OwnerDatabase) {
         val oldest = dao.oldestWaitingAt(profileId)
         val age = oldest?.let { nowMs - it }
         val blocked = dao.blockedCount(profileId)
-        val blockedLine = if (blocked == 0) "" else "تحتاج مراجعة: $blocked. راجع الاتصال والطلب قبل تأكيد قرار جديد.\nNeeds review: $blocked. Check the connection and request before confirming a new decision."
-        return listOf(SyncCopy.queueLine(count, age), blockedLine).filter { it.isNotBlank() }.joinToString("\n")
+        val blockedLine = if (blocked == 0) "" else database.applicationContext.bothLines("sync_blocked_review", blocked).display
+        return listOf(SyncCopy.queueLine(database.applicationContext, count, age), blockedLine).filter { it.isNotBlank() }.joinToString("\n")
     }
 
     fun noticeSnapshot(profileId: String, stream: String, incoming: List<String>, nowMs: Long): NoticePlan =
