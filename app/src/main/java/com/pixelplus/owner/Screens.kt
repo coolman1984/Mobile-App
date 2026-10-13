@@ -95,7 +95,7 @@ internal fun LockScreen(secure: Boolean, onUnlock: () -> Unit) {
     Surface(modifier = Modifier.fillMaxSize()) {
         Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(labelOf("lock_title")), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(labelOf("lock_title"), style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(labelOf("lock_subtitle_en"))
                 Text(labelOf(if (secure) "lock_secure_hint" else "lock_no_secure_hint"))
                 if (secure) Button(onClick = onUnlock) { Text(labelOf("unlock_bilingual")) }

@@ -88,7 +88,7 @@ class HubLogicTest {
         assertEquals(PullSummary(shown = 2, known = 1, unregistered = 1, bytes = 15), summary)
         assertFalse(summary.toString().contains(body))
         assertFalse(summary.toString().contains(hash))
-        assertTrue(pullSummaryText(summary).contains("لم يُحذف شيء"))
+        assertTrue(pullSummaryText(ctx, summary).contains("لم يُحذف شيء"))
     }
 
     @Test fun firstSightIsSilentAndOnlyLaterIdsNotify() {

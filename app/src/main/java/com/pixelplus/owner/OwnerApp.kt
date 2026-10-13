@@ -54,6 +54,7 @@ import com.pixelplus.owner.navigation.NavState
 import com.pixelplus.owner.navigation.RootTab
 import com.pixelplus.owner.navigation.Route
 import com.pixelplus.owner.ui.AppLanguage
+import com.pixelplus.owner.ui.bothLines
 import com.pixelplus.owner.ui.LocaleAudit
 import com.pixelplus.owner.ui.LocaleStore
 import com.pixelplus.owner.ui.hubAlertDetail
